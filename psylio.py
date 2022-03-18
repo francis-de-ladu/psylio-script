@@ -9,7 +9,7 @@ from utils.records import get_records
 
 def main():
     email = '<email>'
-    password = <password >
+    password = '<password>'
 
     print('Attempting login...', end=' ')
     session = login(email, password)
