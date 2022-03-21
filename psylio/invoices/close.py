@@ -17,6 +17,9 @@ def close_paid_invoices(email, password, unpaid_df, newly_paid_df):
     print(newly_paid_df[columns])
     request_confirm(f'Mark {len(newly_paid_df)} invoice(s) as paid?')
 
+    if newly_paid_df.empty:
+        return
+
     # instantiate driver
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service)

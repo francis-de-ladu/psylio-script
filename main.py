@@ -29,6 +29,10 @@ def main():
         password = getpass.getpass('Password: ')
         session = login(email, password)
 
+    tmp_dir = 'psylio-tmp'
+    filename = 'unpaid.csv'
+    unpaid_path = f'{tmp_dir}/{filename}'
+
     try:
         records_df = get_records(session)
         appoints_df = get_appointments(session, records_df)
@@ -37,15 +41,14 @@ def main():
         create_missing_invoices(session, appoints_df, invoices_df)
         unpaid_df = get_unpaid_invoices(session)
 
-        filename = 'unpaid.csv'
-        write_unpaid_to_file(records_df, unpaid_df, filename)
-        newly_paid_df = get_newly_paid(filename)
+        write_unpaid_to_file(records_df, unpaid_df, unpaid_path)
+        newly_paid_df = get_newly_paid(unpaid_path)
 
         close_paid_invoices(email, password, unpaid_df, newly_paid_df)
     finally:
-        path = f'./tmp/{filename}'
-        if os.path.isfile(path):
-            os.remove(path)
+        if os.path.isfile(unpaid_path):
+            os.remove(unpaid_path)
+            os.rmdir(tmp_dir)
 
 
 if __name__ == '__main__':

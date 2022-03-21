@@ -1,12 +1,16 @@
 import logging
 import os
+import re
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
-def write_unpaid_to_file(records_df, unpaid_df, filename, tmp_dir='./tmp'):
+def write_unpaid_to_file(records_df, unpaid_df, unpaid_path):
+    directory = re.sub(r'[^/]+$', '', unpaid_path)
+    os.makedirs(directory, exist_ok=True)
+
     unpaid_df = unpaid_df.join(records_df, on='record_id')
     unpaid_df.reset_index(inplace=True)
 
@@ -16,20 +20,16 @@ def write_unpaid_to_file(records_df, unpaid_df, filename, tmp_dir='./tmp'):
 
     unpaid_df.set_index(['Facture', 'Date'], inplace=True)
     unpaid_df[['Date paiement', 'Comptant', 'Interac']] = ''
-
-    os.makedirs(tmp_dir, exist_ok=True)
-    path = f'{tmp_dir}/{filename}'
-    unpaid_df.to_csv(path)
+    unpaid_df.to_csv(unpaid_path)
 
     if os.name == 'nt':
-        os.startfile(path).read()
+        os.startfile(unpaid_path).read()
     else:
-        os.popen(f'libreoffice --calc {path}').read()
+        os.popen(f'libreoffice --calc {unpaid_path}').read()
 
 
-def get_newly_paid(filename, tmp_dir='./tmp'):
-    path = f'{tmp_dir}/{filename}'
-    with_paid_df = pd.read_csv(path)
+def get_newly_paid(unpaid_path):
+    with_paid_df = pd.read_csv(unpaid_path)
 
     with_paid_df['Date paiement'] = pd.to_datetime(
         with_paid_df['Date paiement'])
