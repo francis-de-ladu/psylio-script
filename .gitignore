@@ -1,4 +1,5 @@
-/output/
+# Directory for temporary files
+/tmp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
