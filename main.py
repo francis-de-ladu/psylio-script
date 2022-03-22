@@ -31,7 +31,7 @@ def main():
 
     tmp_dir = 'psylio-tmp'
     filename = 'unpaid.csv'
-    unpaid_path = f'{tmp_dir}/{filename}'
+    unpaid_path = os.path.join(tmp_dir, filename)
 
     try:
         records_df = get_records(session)

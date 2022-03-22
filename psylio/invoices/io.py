@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import re
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def write_unpaid_to_file(records_df, unpaid_df, unpaid_path):
-    directory = re.sub(r'[^/]+$', '', unpaid_path)
+    directory = os.path.dirname(unpaid_path)
     os.makedirs(directory, exist_ok=True)
 
     unpaid_df = unpaid_df.join(records_df, on='record_id')
@@ -23,7 +24,10 @@ def write_unpaid_to_file(records_df, unpaid_df, unpaid_path):
     unpaid_df.to_csv(unpaid_path)
 
     if os.name == 'nt':
-        os.startfile(unpaid_path).read()
+        #dirname = os.path.dirname(os.path.abspath(inspect.stack()[0][1]))
+        dirname = os.path.dirname(__file__)
+        full_path = os.path.join(dirname, unpaid_path)
+        os.startfile(full_path).read()
     else:
         os.popen(f'libreoffice --calc {unpaid_path}').read()
 
