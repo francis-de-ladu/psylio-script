@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 def close_paid_invoices(email, password, unpaid_df, newly_paid_df):
-    columns = ['Facture', 'Date', 'Client 1', 'Montant dû', 'Date paiement', 'Type paiement']
+    columns = ['Facture', 'Date', 'Client 1',
+               'Montant dû', 'Date paiement', 'Type paiement']
     print(newly_paid_df[columns])
     request_confirm(f'Mark {len(newly_paid_df)} invoice(s) as paid?')
 
