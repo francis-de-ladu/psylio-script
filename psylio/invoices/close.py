@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def close_paid_invoices(email, password, unpaid_df, newly_paid_df):
-    columns = ['Facture', 'Date', 'Client 1', 'Montant dû', 'Date paiement']
+    columns = ['Facture', 'Date', 'Client 1', 'Montant dû', 'Date paiement', 'Type paiement']
     print(newly_paid_df[columns])
     request_confirm(f'Mark {len(newly_paid_df)} invoice(s) as paid?')
 
@@ -43,7 +43,7 @@ def close_paid_invoices(email, password, unpaid_df, newly_paid_df):
     newly_paid_df = newly_paid_df.set_index('Facture')
 
     # get newly paid invoices
-    columns = ['Date paiement', 'Comptant', 'Interac']
+    columns = ['Date paiement', 'Type paiement']
     to_close_df = newly_paid_df[columns].join(unpaid_df, on='Facture')
 
     # mark invoices as paid and send receipts
@@ -64,7 +64,7 @@ def close_invoice(driver, invoice):
 
     # get invoice infos
     payment_date = invoice['Date paiement']
-    payment_types = 'debit_transfer' if invoice['Interac'] else 'cash'
+    payment_types = invoice['Type paiement']
 
     # mark invoice as paid
     mark_invoice_as_paid(driver, payment_date, payment_types)

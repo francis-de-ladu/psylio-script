@@ -2,8 +2,11 @@ import inspect
 import logging
 import os
 import re
+import subprocess
+import time
 
 import pandas as pd
+import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +27,14 @@ def write_unpaid_to_file(records_df, unpaid_df, unpaid_path):
     unpaid_df.to_csv(unpaid_path)
 
     if os.name == 'nt':
-        #dirname = os.path.dirname(os.path.abspath(inspect.stack()[0][1]))
-        dirname = os.path.dirname(__file__)
-        full_path = os.path.join(dirname, unpaid_path)
-        os.startfile(full_path).read()
+        full_path = os.path.join(os.getcwd(), unpaid_path)
+        p = subprocess.Popen(
+            f'start excel {full_path}', stdout=subprocess.PIPE, shell=True)
+
+        while True:
+            time.sleep(1)
+            if "EXCEL.EXE" not in (p.name() for p in psutil.process_iter()):
+                break
     else:
         os.popen(f'libreoffice --calc {unpaid_path}').read()
 
@@ -49,10 +56,11 @@ def get_newly_paid(unpaid_path):
     assert all(valid), 'Inconsistent values have been found!'
 
     newly_paid_df = with_paid_df.loc[with_paid_df['Date paiement'].notna()]
+    newly_paid_df.fillna('', inplace=True)
 
-    with pd.option_context('mode.chained_assignment', None):
-        for col in ['Comptant', 'Interac']:
-            if newly_paid_df[col].dtype == 'object':
-                newly_paid_df[col] = newly_paid_df[col].str.strip()
+    newly_paid_df['Type paiement'] = ''
+    for i, invoice in newly_paid_df.iterrows():
+        type_paiement = 'debit_transfer' if invoice['Interac'] else 'cash'
+        newly_paid_df.loc[i, 'Type paiement'] = type_paiement
 
     return newly_paid_df

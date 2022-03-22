@@ -45,6 +45,8 @@ def main():
         newly_paid_df = get_newly_paid(unpaid_path)
 
         close_paid_invoices(email, password, unpaid_df, newly_paid_df)
+        logging.info('Script completed successfully!')
+        input("Press Enter to exit...")
     finally:
         if os.path.isfile(unpaid_path):
             os.remove(unpaid_path)
