@@ -1,3 +1,3 @@
 #!/bin/bash
 
-pyinstaller --onefile main.py  --name psylio
+pyinstaller --onefile main.py --name psylio --console

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_appointments(session, days=30):
-    end = datetime.now()
+    end = datetime.now().date()
     start = end - timedelta(days=days)
 
     segments = ['appointments', 'agenda', 'calendar']

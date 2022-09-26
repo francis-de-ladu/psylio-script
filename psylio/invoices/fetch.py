@@ -1,6 +1,6 @@
 import logging
-import unicodedata
-
+from datetime import datetime, timedelta
+from operator import itemgetter
 import pandas as pd
 from bs4 import BeautifulSoup
 
@@ -14,13 +14,11 @@ def fetch_invoices(session, record_id, state=None):
     endpoint = get_endpoint_url(*segments, state=state)
     resp = session.get(endpoint)
 
-    KEEP_COLS = ['Facture', 'Service(s)', 'Facturé le',
-                 'Montant dû', 'Montant payé', 'État']
+    KEEP_COLS = ['Facture', 'Service(s)', 'Facturé le', 'Montant', 'État']
 
     try:
         invoices = pd.read_html(resp.content)[0]
-        for col in ('Montant dû', 'Montant payé'):
-            invoices[col] = invoices.get(col, '0,00 $')
+        invoices.rename(columns={'Montant payé': 'Montant'}, inplace=True)
         invoices = invoices[KEEP_COLS]
     except ValueError:
         invoices = pd.DataFrame(columns=KEEP_COLS)
@@ -28,36 +26,52 @@ def fetch_invoices(session, record_id, state=None):
         return invoices
 
 
-def retrieve_invoices(session, appointments):
+def retrieve_invoices(session, appointments, days=30):
     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
     #       &date_type=manual&categories=<service_code_here>
     logger.info('Getting invoices...')
 
-    # STATES = ['Brouillon', 'Facture envoyée', 'Payée', 'Reçu envoyé']
-
-    all_invoices = []
+    paid_invoices = []
     for record_id in appointments.index.unique(level=0):
         print(record_id)
-        open_invoices = fetch_invoices(session, record_id, state='open')
-        paid_invoices = fetch_invoices(session, record_id, state='paid')
-        record_invoices = pd.concat([open_invoices, paid_invoices])
-        record_invoices['DossierID'] = record_id
-        all_invoices.append(record_invoices)
+        client_invoices = fetch_invoices(session, record_id, state='paid')
+        client_invoices['DossierID'] = record_id
+        paid_invoices.append(client_invoices)
 
-    invoices = pd.concat(all_invoices)
+    KEEP_COLS = ['DossierID', 'Facture', 'Service(s)', 'Facturé le', 'Montant dû', 'État']
+    converters = {col: itemgetter(0) for col in KEEP_COLS[2:] + ['Unnamed: 6']}
+
+    end = datetime.now().date()
+    start = end - timedelta(days=days)
+    endpoint = get_endpoint_url('invoices', start=start, end=end, date_type='manual')
+    resp = session.get(endpoint)
+
+    open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
+
+    # extract record ID
+    open_invoices[['Facture', 'DossierID']] = open_invoices['Facture'].tolist()
+    open_invoices['DossierID'] = open_invoices['DossierID'].str.split('/').apply(itemgetter(4))
+
+    STATES = ('Brouillon', 'Facture envoyée', 'Payée', 'Reçu envoyé')
+    open_invoices['État'] = open_invoices.iloc[:, 6].apply(
+        lambda options: STATES[0] if 'Marquer envoyée' in options else STATES[1]
+    )
+
+    open_invoices = open_invoices[KEEP_COLS]
+    open_invoices.rename(columns={'Montant dû': 'Montant'}, inplace=True)
+
+    invoices = pd.concat([open_invoices, *paid_invoices])
     invoices.rename(columns={'Facturé le': 'Date'}, inplace=True)
 
     new_index = ['DossierID', 'Date']
     invoices.set_index(new_index, inplace=True)
 
-    # invoices = invoices.loc[invoices['État'] != 'Reçu envoyé']
-
-    for col in ('Montant dû', 'Montant payé'):
-        invoices[col] = invoices[col].str.strip('$ \xa0') \
-            .str.replace(',', '.').astype(float)
+    # normalize `amount` column, then convert to float
+    invoices['Montant'] = invoices['Montant'].str.strip('\xa0 $')
+    invoices['Montant'] = invoices['Montant'].str.replace(',', '.')
+    invoices['Montant'] = invoices['Montant'].astype(float)
 
     logging.info(f'Found a total of {len(invoices)} invoices!')
-    print(invoices)
 
     return invoices
 
@@ -78,8 +92,7 @@ def retrieve_invoices_old(session, records_df):
     new_index = ['record_id', 'Date']
     invoices_df.set_index(new_index, inplace=True)
 
-    columns = ['invoice_id', 'Facture',
-               'Service(s)', 'État', 'Montant dû', 'Montant payé']
+    columns = ['invoice_id', 'Facture', 'Service(s)', 'État', 'Montant dû', 'Montant payé']
     invoices_df = invoices_df[columns]
 
     logging.info(f'Found a total of {len(invoices_df)} invoices!')

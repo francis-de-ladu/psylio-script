@@ -38,8 +38,13 @@ def main():
         records = pd.DataFrame()  # get_records(session)
         appointments = get_appointments(session)
         print(appointments)
+        print()
         invoices = retrieve_invoices(session, appointments)
-        print(appointments.join(invoices))
+
+        appointments = appointments.join(invoices)
+        appointments = appointments.loc[appointments['État'] != 'Reçu envoyé']
+        print(appointments)
+        print()
 
         create_missing_invoices(session, appointments, invoices)
         unpaid = get_unpaid_invoices(session)
