@@ -1,12 +1,68 @@
 import logging
+import unicodedata
 
 import pandas as pd
 from bs4 import BeautifulSoup
 
+from ..utils import get_endpoint_url
+
 logger = logging.getLogger(__name__)
 
 
-def retrieve_invoices(session, records_df):
+def fetch_invoices(session, record_id, state=None):
+    segments = ['assistance-requests', record_id, 'invoices']
+    endpoint = get_endpoint_url(*segments, state=state)
+    resp = session.get(endpoint)
+
+    KEEP_COLS = ['Facture', 'Service(s)', 'Facturé le',
+                 'Montant dû', 'Montant payé', 'État']
+
+    try:
+        invoices = pd.read_html(resp.content)[0]
+        for col in ('Montant dû', 'Montant payé'):
+            invoices[col] = invoices.get(col, '0,00 $')
+        invoices = invoices[KEEP_COLS]
+    except ValueError:
+        invoices = pd.DataFrame(columns=KEEP_COLS)
+    finally:
+        return invoices
+
+
+def retrieve_invoices(session, appointments):
+    # TODO: ?types=income&start=2022-03-07&end=2022-03-21
+    #       &date_type=manual&categories=<service_code_here>
+    logger.info('Getting invoices...')
+
+    # STATES = ['Brouillon', 'Facture envoyée', 'Payée', 'Reçu envoyé']
+
+    all_invoices = []
+    for record_id in appointments.index.unique(level=0):
+        print(record_id)
+        open_invoices = fetch_invoices(session, record_id, state='open')
+        paid_invoices = fetch_invoices(session, record_id, state='paid')
+        record_invoices = pd.concat([open_invoices, paid_invoices])
+        record_invoices['DossierID'] = record_id
+        all_invoices.append(record_invoices)
+
+    invoices = pd.concat(all_invoices)
+    invoices.rename(columns={'Facturé le': 'Date'}, inplace=True)
+
+    new_index = ['DossierID', 'Date']
+    invoices.set_index(new_index, inplace=True)
+
+    # invoices = invoices.loc[invoices['État'] != 'Reçu envoyé']
+
+    for col in ('Montant dû', 'Montant payé'):
+        invoices[col] = invoices[col].str.strip('$ \xa0') \
+            .str.replace(',', '.').astype(float)
+
+    logging.info(f'Found a total of {len(invoices)} invoices!')
+    print(invoices)
+
+    return invoices
+
+
+def retrieve_invoices_old(session, records_df):
     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
     #       &date_type=manual&categories=<service_code_here>
     logger.info('Getting invoices...')

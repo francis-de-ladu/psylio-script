@@ -1,12 +1,56 @@
 import logging
 from datetime import datetime, timedelta
+from functools import reduce
+from operator import getitem
 
 import pandas as pd
+
+from ..utils import get_endpoint_url
 
 logger = logging.getLogger(__name__)
 
 
-def get_appointments(session, records_df, days=30):
+def get_appointments(session, days=30):
+    end = datetime.now()
+    start = end - timedelta(days=days)
+
+    segments = ['appointments', 'agenda', 'calendar']
+    endpoint = get_endpoint_url(*segments, start=start, end=end)
+
+    columns = dict(
+        startDate='Date',
+        startHour='Heure',
+        assistanceRequest_data_id='DossierID',
+        title='Titre',
+    )
+
+    logger.info('Getting appointments...')
+    resp = session.get(endpoint)
+
+    appointments = []
+    for entry in resp.json():
+        data = entry['modal']['appointment']
+        # infos = {key: data[key] for key in columns}
+        infos = {key: reduce(getitem, key.split('_'), data) for key in columns}
+        appointments.append(infos)
+
+    appointments = pd.DataFrame(appointments)
+    appointments.rename(columns=columns, inplace=True)
+
+    INDEX_COLS = ['DossierID', 'Date']
+    appointments.sort_values(INDEX_COLS, inplace=True)
+    appointments.set_index(INDEX_COLS, inplace=True)
+
+    logger.info((f'Found {len(appointments)} appointments '
+                 f'over last {days} days!'))
+
+    mask = ~appointments['Titre'].str.contains('annulé')
+    appointments = appointments.loc[mask]
+
+    return appointments
+
+
+def get_appointments_old(session, records_df, days=30):
     end = datetime.now()
     start = end - timedelta(days=days)
 

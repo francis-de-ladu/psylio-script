@@ -2,6 +2,7 @@ import getpass
 import logging
 import os
 
+import pandas as pd
 from psylio.appointments import get_appointments
 from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
@@ -34,17 +35,19 @@ def main():
     unpaid_path = os.path.join(tmp_dir, filename)
 
     try:
-        records_df = get_records(session)
-        appoints_df = get_appointments(session, records_df)
-        invoices_df = retrieve_invoices(session, records_df)
+        records = pd.DataFrame()  # get_records(session)
+        appointments = get_appointments(session)
+        print(appointments)
+        invoices = retrieve_invoices(session, appointments)
+        print(appointments.join(invoices))
 
-        create_missing_invoices(session, appoints_df, invoices_df)
-        unpaid_df = get_unpaid_invoices(session)
+        create_missing_invoices(session, appointments, invoices)
+        unpaid = get_unpaid_invoices(session)
 
-        write_unpaid_to_file(records_df, unpaid_df, unpaid_path)
-        newly_paid_df = get_newly_paid(unpaid_path)
+        write_unpaid_to_file(records, unpaid, unpaid_path)
+        newly_paid = get_newly_paid(unpaid_path)
 
-        close_paid_invoices(email, password, unpaid_df, newly_paid_df)
+        close_paid_invoices(email, password, unpaid, newly_paid)
         logging.info('Script completed successfully!')
         input("Press Enter to exit...")
     finally:
