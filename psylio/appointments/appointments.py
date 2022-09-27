@@ -17,7 +17,7 @@ def retrieve_appointments(session, nb_days=30):
         title='Titre',
     )
 
-    logger.info('Getting appointments...')
+    logger.info('Retrieving appointments...')
     resp = session.get(appointments_url(nb_days))
 
     # retrieve appointments from response

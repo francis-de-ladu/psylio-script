@@ -9,7 +9,7 @@ from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
                              get_newly_paid, get_unpaid_invoices,
                              retrieve_invoices, write_unpaid_to_file)
-from psylio.invoices.fetch import retrieve_open_invoices
+from psylio.invoices.fetch import retrieve_open_invoices, retrieve_paid_invoices
 from psylio.records import get_records
 
 
@@ -37,20 +37,32 @@ def main():
     unpaid_path = os.path.join(tmp_dir, filename)
 
     try:
-        records = pd.DataFrame()  # get_records(session)
         appointments = retrieve_appointments(session)
         print(appointments)
         print()
-        # invoices = retrieve_invoices(session, appointments)
+
+        # retrieve open invoices and match them with appointments
         open_invoices = retrieve_open_invoices(session)
-        appointments = appointments.join(open_invoices)
-        appointments = appointments.loc[appointments['État'] != 'Reçu envoyé']
-        print(appointments)
-        print()
+        open_invoices = appointments.join(open_invoices)
+        open_invoices.dropna(inplace=True)
+
+        # extract appointments without invoices and
+        appointments.drop(open_invoices.index, inplace=True)
+
+        # retrieve paid invoices and match them with appointments
+        record_ids = appointments.index.unique(level=0)
+        paid_invoices = retrieve_paid_invoices(session, record_ids)
+        paid_invoices = appointments.join(paid_invoices)
+        paid_invoices = paid_invoices.loc[paid_invoices['État'] != 'Reçu envoyé']
+        # print(paid_invoices)
+
+        invoices = pd.concat([open_invoices, paid_invoices])
+        print(invoices)
 
         create_missing_invoices(session, appointments, invoices)
         unpaid = get_unpaid_invoices(session)
 
+        records = pd.DataFrame()  # get_records(session)
         write_unpaid_to_file(records, unpaid, unpaid_path)
         newly_paid = get_newly_paid(unpaid_path)
 

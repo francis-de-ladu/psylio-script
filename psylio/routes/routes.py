@@ -47,6 +47,6 @@ def invoice_url(record_id, invoice_id):
     return endpoint_url(record_url, 'invoices', invoice_id)
 
 
-def record_invoices_url(record_id, state=None):
+def record_invoices_url(record_id, state='open'):
     record_url = profile_url(record_id)
-    return endpoint_url(record_url, 'invoices')
+    return endpoint_url(record_url, 'invoices', state=state)

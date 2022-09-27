@@ -4,7 +4,7 @@ from operator import itemgetter
 import pandas as pd
 from bs4 import BeautifulSoup
 
-from ..routes import open_invoices_url
+from ..routes import open_invoices_url, record_invoices_url
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ def retrieve_open_invoices(session, nb_days=30):
     columns = ['Service(s)', 'Facturé le', 'Montant dû', 'État', 'Unnamed: 6']
     converters = {col: itemgetter(0) for col in columns}
 
-    logger.info('Getting open invoices...')
+    logger.info('Retrieving open invoices...')
     resp = session.get(open_invoices_url(nb_days))
 
     # TODO: handle possible exception
@@ -37,13 +37,48 @@ def retrieve_open_invoices(session, nb_days=30):
         'État': 'État',
     }
 
-    open_invoices = open_invoices[list(columns)]  # .copy()
+    open_invoices = open_invoices[list(columns)]
     open_invoices.rename(columns=columns, inplace=True)
 
     INDEX_COLS = ['RecordID', 'Date']
     open_invoices.set_index(INDEX_COLS, inplace=True)
 
     return open_invoices
+
+
+def retrieve_paid_invoices(session, record_ids):
+    columns = {
+        'RecordID': 'RecordID',
+        'Facture': 'Facture',
+        'Service(s)': 'Service(s)',
+        'Facturé le': 'Date',
+        'Montant payé': 'Montant',
+        'État': 'État',
+    }
+
+    logger.info('Retrieving paid invoices...')
+
+    paid_invoices = []
+    for record_id in record_ids:
+        print(record_id)
+        resp = session.get(record_invoices_url(record_id, state='paid'))
+
+        try:
+            record_invoices = pd.read_html(resp.content)[0]
+            record_invoices['RecordID'] = record_id
+            record_invoices = record_invoices[list(columns)]
+        except ValueError:
+            record_invoices = pd.DataFrame(columns=list(columns))
+        finally:
+            paid_invoices.append(record_invoices)
+
+    paid_invoices = pd.concat(paid_invoices)
+    paid_invoices.rename(columns=columns, inplace=True)
+
+    INDEX_COLS = ['RecordID', 'Date']
+    paid_invoices.set_index(INDEX_COLS, inplace=True)
+
+    return paid_invoices
 
 
 def fetch_invoices(session, record_id, state=None):
@@ -66,7 +101,7 @@ def fetch_invoices(session, record_id, state=None):
 def retrieve_invoices(session, appointments, nb_days=30):
     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
     #       &date_type=manual&categories=<service_code_here>
-    logger.info('Getting invoices...')
+    logger.info('Retrieving invoices...')
 
     paid_invoices = []
     for record_id in appointments.index.unique(level=0):
@@ -100,7 +135,7 @@ def retrieve_invoices(session, appointments, nb_days=30):
 def retrieve_invoices_old(session, records_df):
     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
     #       &date_type=manual&categories=<service_code_here>
-    logger.info('Getting invoices...')
+    logger.info('Retrieving invoices...')
 
     all_invoices = []
     for record_id, _ in records_df.iterrows():

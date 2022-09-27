@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_records_old(session):
-    logger.info('Getting records...')
+    logger.info('Retrieving records...')
     active_records = fetch_records(session)
     archived_records = fetch_records(session, archive=True)
     logger.info(f'Found {len(active_records)} active records'
@@ -72,7 +72,7 @@ def fetch_records_old(session, base_url, endpoint=None):
 
 
 def get_records(session):
-    logger.info('Getting records...')
+    logger.info('Retrieving records...')
     active_records = fetch_records(session)
     archived_records = fetch_records(session, endpoint='archive')
     logger.info(f'Found {len(active_records)} active records'
