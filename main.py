@@ -2,7 +2,7 @@ import getpass
 import logging
 import os
 
-from psylio.appointments import get_appointments
+from psylio.appointments import retrieve_appointments
 from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
                              get_newly_paid, get_unpaid_invoices,
@@ -35,7 +35,7 @@ def main():
 
     try:
         records_df = get_records(session)
-        appoints_df = get_appointments(session, records_df)
+        appoints_df = retrieve_appointments(session, records_df)
         invoices_df = retrieve_invoices(session, records_df)
 
         create_missing_invoices(session, appoints_df, invoices_df)

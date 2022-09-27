@@ -1,5 +1,5 @@
-from .appointments import get_appointments
+from .appointments import retrieve_appointments
 
 __all__ = [
-    'get_appointments',
+    'retrieve_appointments',
 ]

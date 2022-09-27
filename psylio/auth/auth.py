@@ -3,13 +3,14 @@ import logging
 
 import requests
 from bs4 import BeautifulSoup
+from ..routes import login_url, base_url
 
 logger = logging.getLogger(__name__)
 
 
-def login(email, password, base_url='https://admin.psylio.com'):
+def login(email, password):
     session = requests.Session()
-    resp = session.get(base_url)
+    resp = session.get(base_url())
 
     soup = BeautifulSoup(resp.content, 'html.parser')
     _token = soup.find('input', {'name': '_token'}).get('value')
@@ -28,15 +29,18 @@ def login(email, password, base_url='https://admin.psylio.com'):
     })
 
     logger.info('Attempting login...')
-    resp = session.post(f'{base_url}/login', data=json.dumps(payload))
+    resp = session.post(login_url(), data=json.dumps(payload))
+
     soup = BeautifulSoup(resp.content, 'html.parser')
     alert = soup.find('div', {'class': 'alert alert-danger'})
+
     if alert:
         logger.info('Invalid username or password.')
         return
 
     update_headers(session)
     logger.info('Login successful!')
+
     return session
 
 

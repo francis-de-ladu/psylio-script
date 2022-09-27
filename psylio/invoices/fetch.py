@@ -4,14 +4,51 @@ from operator import itemgetter
 import pandas as pd
 from bs4 import BeautifulSoup
 
-from ..utils import get_endpoint_url
+from ..routes import open_invoices_url
 
 logger = logging.getLogger(__name__)
 
 
+def retrieve_open_invoices(session, nb_days=30):
+    columns = ['Service(s)', 'Facturé le', 'Montant dû', 'État', 'Unnamed: 6']
+    converters = {col: itemgetter(0) for col in columns}
+
+    logger.info('Getting open invoices...')
+    resp = session.get(open_invoices_url(nb_days))
+
+    # TODO: handle possible exception
+    open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
+
+    # extract record IDs
+    open_invoices[['Facture', 'RecordID']] = open_invoices['Facture'].tolist()
+    open_invoices['RecordID'] = open_invoices['RecordID'].str.split('/').apply(itemgetter(4))
+
+    STATES = ('Brouillon', 'Facture envoyée')  # , 'Payée', 'Reçu envoyé')
+    open_invoices['État'] = open_invoices.iloc[:, 6].apply(
+        lambda dropdown: STATES[0] if 'Marquer envoyée' in dropdown else STATES[1]
+    )
+
+    columns = {
+        'RecordID': 'RecordID',
+        'Facture': 'Facture',
+        'Service(s)': 'Service(s)',
+        'Facturé le': 'Date',
+        'Montant dû': 'Montant',
+        'État': 'État',
+    }
+
+    open_invoices = open_invoices[list(columns)]  # .copy()
+    open_invoices.rename(columns=columns, inplace=True)
+
+    INDEX_COLS = ['RecordID', 'Date']
+    open_invoices.set_index(INDEX_COLS, inplace=True)
+
+    return open_invoices
+
+
 def fetch_invoices(session, record_id, state=None):
     segments = ['assistance-requests', record_id, 'invoices']
-    endpoint = get_endpoint_url(*segments, state=state)
+    endpoint = endpoint_url(*segments, state=state)
     resp = session.get(endpoint)
 
     KEEP_COLS = ['Facture', 'Service(s)', 'Facturé le', 'Montant', 'État']
@@ -26,7 +63,7 @@ def fetch_invoices(session, record_id, state=None):
         return invoices
 
 
-def retrieve_invoices(session, appointments, days=30):
+def retrieve_invoices(session, appointments, nb_days=30):
     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
     #       &date_type=manual&categories=<service_code_here>
     logger.info('Getting invoices...')
@@ -35,35 +72,19 @@ def retrieve_invoices(session, appointments, days=30):
     for record_id in appointments.index.unique(level=0):
         print(record_id)
         client_invoices = fetch_invoices(session, record_id, state='paid')
-        client_invoices['DossierID'] = record_id
+        client_invoices['RecordID'] = record_id
         paid_invoices.append(client_invoices)
 
-    KEEP_COLS = ['DossierID', 'Facture', 'Service(s)', 'Facturé le', 'Montant dû', 'État']
+    KEEP_COLS = ['RecordID', 'Facture', 'Service(s)', 'Facturé le', 'Montant dû', 'État']
     converters = {col: itemgetter(0) for col in KEEP_COLS[2:] + ['Unnamed: 6']}
 
-    end = datetime.now().date()
-    start = end - timedelta(days=days)
-    endpoint = get_endpoint_url('invoices', start=start, end=end, date_type='manual')
-    resp = session.get(endpoint)
-
-    open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
-
-    # extract record ID
-    open_invoices[['Facture', 'DossierID']] = open_invoices['Facture'].tolist()
-    open_invoices['DossierID'] = open_invoices['DossierID'].str.split('/').apply(itemgetter(4))
-
-    STATES = ('Brouillon', 'Facture envoyée', 'Payée', 'Reçu envoyé')
-    open_invoices['État'] = open_invoices.iloc[:, 6].apply(
-        lambda options: STATES[0] if 'Marquer envoyée' in options else STATES[1]
-    )
-
-    open_invoices = open_invoices[KEEP_COLS]
-    open_invoices.rename(columns={'Montant dû': 'Montant'}, inplace=True)
+    # fetch open invoices (those already created, but not paid)
+    open_invoices = retrieve_open_invoices(session, nb_days)
 
     invoices = pd.concat([open_invoices, *paid_invoices])
     invoices.rename(columns={'Facturé le': 'Date'}, inplace=True)
 
-    new_index = ['DossierID', 'Date']
+    new_index = ['RecordID', 'Date']
     invoices.set_index(new_index, inplace=True)
 
     # normalize `amount` column, then convert to float
@@ -138,7 +159,7 @@ def get_unpaid_invoices(session):
     logger.info('Retrieving unpaid invoices (including newly created)...')
 
     # get unpaid invoices
-    unpaid_df = fetch_unpaid(session)
+    unpaid_df = retrieve_open_invoices(session)
     unpaid_df.rename(columns={'Facturé le': 'Date'}, inplace=True)
 
     # set new index columns
@@ -154,7 +175,7 @@ def get_unpaid_invoices(session):
     return unpaid_df
 
 
-def fetch_unpaid(session):
+def retrieve_open_invoices_old(session):
     page = 1
     unpaid_pages = []
 

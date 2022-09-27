@@ -3,17 +3,15 @@ import logging
 import pandas as pd
 from bs4 import BeautifulSoup
 
-from ..utils import get_endpoint_url
+from ..routes import records_url, profile_url
 
 logger = logging.getLogger(__name__)
 
 
 def get_records_old(session):
-    base_url = 'https://admin.psylio.com/assistance-requests'
-
     logger.info('Getting records...')
-    active_records = fetch_records(session, base_url)
-    archived_records = fetch_records(session, base_url, endpoint='archive')
+    active_records = fetch_records(session)
+    archived_records = fetch_records(session, archive=True)
     logger.info(f'Found {len(active_records)} active records'
                 f' and {len(archived_records)} archived records!')
 
@@ -92,10 +90,8 @@ def get_records(session):
     return records_df
 
 
-def fetch_records(session, endpoint=''):
-    request_url = get_endpoint_url('assistance-requests', endpoint)
-    resp = session.get(request_url)
-    print(request_url)
+def fetch_records(session, archive=False):
+    resp = session.get(records_url(archive))
     records = pd.read_html(resp.content)[0]
     print(records.columns)
     print(records)
@@ -116,9 +112,7 @@ def fetch_records(session, endpoint=''):
     records_df.set_index('record_id', inplace=True)
 
     for record_id, record in records_df.iterrows():
-        profile_url = get_endpoint_url(
-            'assistance-requests', record_id, 'profile')
-        resp = session.get(profile_url)
+        resp = session.get(profile_url(record_id))
 
         soup = BeautifulSoup(resp.content, 'html.parser')
         clients = soup.find(

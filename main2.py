@@ -3,11 +3,13 @@ import logging
 import os
 
 import pandas as pd
-from psylio.appointments import get_appointments
+
+from psylio.appointments import retrieve_appointments
 from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
                              get_newly_paid, get_unpaid_invoices,
                              retrieve_invoices, write_unpaid_to_file)
+from psylio.invoices.fetch import retrieve_open_invoices
 from psylio.records import get_records
 
 
@@ -36,12 +38,12 @@ def main():
 
     try:
         records = pd.DataFrame()  # get_records(session)
-        appointments = get_appointments(session)
+        appointments = retrieve_appointments(session)
         print(appointments)
         print()
-        invoices = retrieve_invoices(session, appointments)
-
-        appointments = appointments.join(invoices)
+        # invoices = retrieve_invoices(session, appointments)
+        open_invoices = retrieve_open_invoices(session)
+        appointments = appointments.join(open_invoices)
         appointments = appointments.loc[appointments['État'] != 'Reçu envoyé']
         print(appointments)
         print()
