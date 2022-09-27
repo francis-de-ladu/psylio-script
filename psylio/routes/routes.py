@@ -20,8 +20,8 @@ def login_url():
     return endpoint_url(PSYLIO_URL, 'login')
 
 
-def records_url(archive=False):
-    return endpoint_url(REQUEST_URL, 'archive' if archive else '')
+def records_url(is_archived=False):
+    return endpoint_url(REQUEST_URL, 'archive' if is_archived else '')
 
 
 def appointments_url(nb_days):
@@ -38,15 +38,26 @@ def open_invoices_url(nb_days):
     return endpoint_url(PSYLIO_URL, 'invoices', **query_params)
 
 
-def profile_url(record_id):
+def record_url(record_id):
     return endpoint_url(REQUEST_URL, record_id)
 
 
+def profile_url(record_id):
+    return endpoint_url(record_url(record_id), 'profile')
+
+
 def invoice_url(record_id, invoice_id):
-    record_url = profile_url(record_id)
-    return endpoint_url(record_url, 'invoices', invoice_id)
+    return endpoint_url(record_url(record_id), 'invoices', invoice_id)
 
 
-def record_invoices_url(record_id, state='open'):
-    record_url = profile_url(record_id)
-    return endpoint_url(record_url, 'invoices', state=state)
+def record_invoices_url(record_id, state=None):
+    query_params = {}
+    if state is not None:
+        assert state in ('paid', 'canceled')
+        query_params['state'] = state
+
+    return endpoint_url(record_url(record_id), 'invoices', **query_params)
+
+
+def invoice_create_url(record_id):
+    return endpoint_url(record_invoices_url(record_id), 'create')

@@ -9,7 +9,7 @@ from ..routes import open_invoices_url, record_invoices_url
 logger = logging.getLogger(__name__)
 
 
-def retrieve_open_invoices(session, nb_days=30):
+def retrieve_open_invoices(session, nb_days=60):
     columns = ['Service(s)', 'Facturé le', 'Montant dû', 'État', 'Unnamed: 6']
     converters = {col: itemgetter(0) for col in columns}
 
@@ -68,6 +68,7 @@ def retrieve_paid_invoices(session, record_ids):
             record_invoices['RecordID'] = record_id
             record_invoices = record_invoices[list(columns)]
         except ValueError:
+            print("EXCEPTION!")
             record_invoices = pd.DataFrame(columns=list(columns))
         finally:
             paid_invoices.append(record_invoices)

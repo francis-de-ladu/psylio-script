@@ -8,9 +8,17 @@ from psylio.appointments import retrieve_appointments
 from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
                              get_newly_paid, get_unpaid_invoices,
-                             retrieve_invoices, write_unpaid_to_file)
-from psylio.invoices.fetch import retrieve_open_invoices, retrieve_paid_invoices
-from psylio.records import get_records
+                             retrieve_invoices, retrieve_open_invoices,
+                             retrieve_paid_invoices, write_unpaid_to_file)
+from psylio.records import get_records, retrieve_records_from_list
+
+
+def my_print(something):
+    print()
+    print()
+    print(something)
+    print()
+    print()
 
 
 def main():
@@ -38,15 +46,14 @@ def main():
 
     try:
         appointments = retrieve_appointments(session)
-        print(appointments)
-        print()
+        my_print(appointments)
 
         # retrieve open invoices and match them with appointments
         open_invoices = retrieve_open_invoices(session)
         open_invoices = appointments.join(open_invoices)
         open_invoices.dropna(inplace=True)
 
-        # extract appointments without invoices and
+        # only keep appointments without invoice
         appointments.drop(open_invoices.index, inplace=True)
 
         # retrieve paid invoices and match them with appointments
@@ -54,12 +61,15 @@ def main():
         paid_invoices = retrieve_paid_invoices(session, record_ids)
         paid_invoices = appointments.join(paid_invoices)
         paid_invoices = paid_invoices.loc[paid_invoices['État'] != 'Reçu envoyé']
-        # print(paid_invoices)
 
         invoices = pd.concat([open_invoices, paid_invoices])
-        print(invoices)
+        my_print(invoices)
 
-        create_missing_invoices(session, appointments, invoices)
+        # create invoices for appointments without one
+        missing_invoices = invoices.loc[invoices['Facture'].isna()]
+        record_ids = missing_invoices.index.unique(level=0)
+        records_with_missing = retrieve_records_from_list(session, record_ids)
+        create_missing_invoices(session, missing_invoices)
         unpaid = get_unpaid_invoices(session)
 
         records = pd.DataFrame()  # get_records(session)

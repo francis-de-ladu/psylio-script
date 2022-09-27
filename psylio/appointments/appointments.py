@@ -36,10 +36,10 @@ def retrieve_appointments(session, nb_days=30):
     appointments.sort_values(INDEX_COLS, inplace=True)
     appointments.set_index(INDEX_COLS, inplace=True)
 
-    # removed cancelled appointments
+    # removed canceled appointments
     mask = ~appointments['Titre'].str.contains('annulé')
     appointments = appointments.loc[mask]
 
-    logger.info((f'Found {len(appointments)} appointments and {sum(~mask)} cancelled over last {nb_days} days!'))
+    logger.info((f'Found {len(appointments)} appointments and {sum(~mask)} canceled over last {nb_days} days!'))
 
     return appointments
