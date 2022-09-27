@@ -10,7 +10,7 @@ from psylio.invoices import (close_paid_invoices, create_missing_invoices,
                              get_newly_paid, get_unpaid_invoices,
                              retrieve_invoices, retrieve_open_invoices,
                              retrieve_paid_invoices, write_unpaid_to_file)
-from psylio.records import get_records, retrieve_records_from_list
+from psylio.records import get_records, retrieve_records_from_ids
 
 
 def my_print(something):
@@ -45,6 +45,7 @@ def main():
     unpaid_path = os.path.join(tmp_dir, filename)
 
     try:
+        # retrieve recent appointments
         appointments = retrieve_appointments(session)
         my_print(appointments)
 
@@ -62,13 +63,23 @@ def main():
         paid_invoices = appointments.join(paid_invoices)
         paid_invoices = paid_invoices.loc[paid_invoices['État'] != 'Reçu envoyé']
 
+        # group all invoices with unsent receipts together
         invoices = pd.concat([open_invoices, paid_invoices])
         my_print(invoices)
 
-        # create invoices for appointments without one
+        # extract invoices that must be created as well as associated record infos
         missing_invoices = invoices.loc[invoices['Facture'].isna()]
         record_ids = missing_invoices.index.unique(level=0)
-        records_with_missing = retrieve_records_from_list(session, record_ids)
+        records = retrieve_records_from_ids(session, record_ids)
+
+        # add record infos to invoices to be created
+        missing_invoices.reset_index(inplace=True, drop=False)
+        missing_invoices.set_index('RecordID', inplace=True)
+        missing_invoices = missing_invoices.join(records)
+        my_print(missing_invoices)
+        exit()
+
+        # create invoices for appointments without one
         create_missing_invoices(session, missing_invoices)
         unpaid = get_unpaid_invoices(session)
 

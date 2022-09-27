@@ -1,18 +1,18 @@
-import requests
 import logging
 
 import pandas as pd
 from bs4 import BeautifulSoup
 from requests.auth import HTTPBasicAuth
+from tqdm import tqdm
 
 from ..routes import profile_url, records_url
 
 logger = logging.getLogger(__name__)
 
 
-def retrieve_records_from_list(session, record_ids):
+def retrieve_records_from_ids(session, record_ids):
     records = []
-    for record_id in record_ids:
+    for record_id in tqdm(record_ids):
         resp = session.get(profile_url(record_id))
         soup = BeautifulSoup(resp.content, 'html.parser')
 
@@ -27,7 +27,9 @@ def retrieve_records_from_list(session, record_ids):
 
         records.append(record_infos)
 
-    return pd.concat(records)
+    records = pd.concat(records)
+    records.set_index('RecordID', inplace=True)
+    return records
 
 
 def extract_person_infos(session, tabpanel):

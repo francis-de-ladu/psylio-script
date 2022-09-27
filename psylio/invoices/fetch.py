@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime, timedelta
 from operator import itemgetter
+
 import pandas as pd
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 from ..routes import open_invoices_url, record_invoices_url
 
@@ -59,8 +61,7 @@ def retrieve_paid_invoices(session, record_ids):
     logger.info('Retrieving paid invoices...')
 
     paid_invoices = []
-    for record_id in record_ids:
-        print(record_id)
+    for record_id in tqdm(record_ids):
         resp = session.get(record_invoices_url(record_id, state='paid'))
 
         try:
