@@ -1,19 +1,20 @@
 import json
 import logging
 import re
-from itertools import tee
+# from itertools import tee
+from itertools import pairwise
 
 from bs4 import BeautifulSoup
 
-from psylio.routes.routes import record_invoices_url
+from psylio.routes.routes import record_invoices_url, invoice_url
 
 from ..utils import request_confirm
-
+from pprint import pprint
 logger = logging.getLogger(__name__)
 
 
 def create_missing_invoices(session, missing_invoices):
-    logger.info('Creating invoices for appointments without one...')
+    logger.info('Creating invoices for appointments not having one already...')
 
     if missing_invoices.empty:
         logger.info('There were no missing invoices.')
@@ -27,23 +28,23 @@ def create_missing_invoices(session, missing_invoices):
 
 
 def create_invoice(session, invoice, service='Sexologie psychothérapie'):
-    date, start_time = invoice[['Date', 'Heure début']]
-    logger.info(f'Creating invoice for {date} at {start_time}...')
+    record_id, appoint_date, start_time = invoice[['RecordID', 'Date', 'Heure']]
+    logger.info(f'Creating invoice for {appoint_date} at {start_time}...')
 
-    resp = session.get(record_invoices_url(invoice['RecordID']))
+    resp = session.get(invoice_url(record_id, create=True))
     soup = BeautifulSoup(resp.content, 'html.parser')
-    forms = soup.find_all('form')
+    invoice_form = soup.find('form', attrs={'class': 'form invoice'})
 
     payload = {}
 
     # add values of `input` elements to payload
-    for field in forms[1].find_all('input'):
+    for field in invoice_form.find_all('input'):
         field_name, field_value = field.get('name'), field.get('value', '')
-        if field_name is not None:
+        if field_name:
             add_to_payload(payload, field_name, field_value)
 
     # add values of `textarea` elements to payload
-    for field in forms[1].find_all('textarea'):
+    for field in invoice_form.find_all('textarea'):
         field_name, field_value = field.get('name'), field.get_text()
         add_to_payload(payload, field_name, field_value)
 
@@ -51,12 +52,12 @@ def create_invoice(session, invoice, service='Sexologie psychothérapie'):
     payload['institution'] = {'id': ''}
     payload['paymentDate'] = ''
     payload['paymentTypes'] = ''
-    payload['meta']['charged_at'] = invoice['Date']
 
-    # update client names
+    # update client names and billing date
     client_names = ' et '.join(filter(bool, invoice[['Client 1', 'Client 2']]))
-    payload['meta']['client_name'] = client_names
     payload['meta']['billed_to_name'] = client_names
+    payload['meta']['client_name'] = client_names
+    payload['meta']['charged_at'] = appoint_date
 
     # format `price` entry
     price_per_unit = payload['items']['0']['price_per_unit'].replace(',', '.')
@@ -66,7 +67,8 @@ def create_invoice(session, invoice, service='Sexologie psychothérapie'):
     })
 
     # create invoice
-    session.post(endpoint, data=json.dumps(payload))
+    resp = session.post(record_invoices_url(record_id), data=json.dumps(payload))
+    print(resp)
 
 
 def create_invoice_old(session, invoice, service='Sexologie psychothérapie'):
@@ -132,8 +134,8 @@ def add_to_payload(payload, field_name, field_value, pattern=r'(\[|\]|\]\[])'):
         current[k2] = field_value
 
 
-def pairwise(iterable):
-    # pairwise('ABCDEFG') --> AB BC CD DE EF FG
-    a, b = tee(iterable)
-    next(b, None)
-    return zip(a, b)
+# def pairwise(iterable):
+#     # pairwise('ABCDEFG') --> AB BC CD DE EF FG
+#     a, b = tee(iterable)
+#     next(b, None)
+#     return zip(a, b)

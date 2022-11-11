@@ -5,7 +5,7 @@ import os
 from psylio.appointments import retrieve_appointments
 from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
-                             get_newly_paid, get_unpaid_invoices,
+                             get_newly_paid, retrieve_unpaid_invoices,
                              retrieve_invoices, write_unpaid_to_file)
 from psylio.records import get_records
 
@@ -39,7 +39,7 @@ def main():
         invoices_df = retrieve_invoices(session, records_df)
 
         create_missing_invoices(session, appoints_df, invoices_df)
-        unpaid_df = get_unpaid_invoices(session)
+        unpaid_df = retrieve_unpaid_invoices(session)
 
         write_unpaid_to_file(records_df, unpaid_df, unpaid_path)
         newly_paid_df = get_newly_paid(unpaid_path)

@@ -17,17 +17,18 @@ def retrieve_records_from_ids(session, record_ids):
         soup = BeautifulSoup(resp.content, 'html.parser')
 
         columns = ['RecordID', 'Client 1', 'Courriel 1', 'Client 2', 'Courriel 2']
-        record_infos = pd.DataFrame(columns=columns)
+        record_infos = dict.fromkeys(columns, "")
         record_infos['RecordID'] = record_id
 
         tabpanels = soup.find_all('div', {'role': 'tabpanel'})
         for i, tabpanel in enumerate(tabpanels):
             full_name, email = extract_person_infos(session, tabpanel)
-            record_infos[[f'Client {i + 1}', f'Courriel {i + 1}']] = full_name, email
+            record_infos[f"Client {i + 1}"] = full_name
+            record_infos[f"Courriel {i + 1}"] = email
 
         records.append(record_infos)
 
-    records = pd.concat(records)
+    records = pd.DataFrame(records)
     records.set_index('RecordID', inplace=True)
     return records
 
@@ -43,7 +44,7 @@ def extract_person_infos(session, tabpanel):
     full_name = ', '.join([last_name, first_name])
 
     email = soup.find('input', {'id': 'email'}).get('value')
-
+    
     return full_name, email
 
 

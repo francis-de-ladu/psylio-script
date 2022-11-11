@@ -21,10 +21,13 @@ def retrieve_open_invoices(session, nb_days=60):
     # TODO: handle possible exception
     open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
 
-    # extract record IDs
-    open_invoices[['Facture', 'RecordID']] = open_invoices['Facture'].tolist()
-    open_invoices['RecordID'] = open_invoices['RecordID'].str.split('/').apply(itemgetter(4))
-
+    # extract record/invoice IDs
+    open_invoices[['Facture', 'invoice_url']] = open_invoices['Facture'].tolist()
+    # Invoice URL format: https://admin.psylio.com/assistance-requests/<record_id>/invoices/<invoice_id>
+    open_invoices['invoice_url'] = open_invoices['invoice_url'].str.split('/+', regex=True)
+    open_invoices['RecordID'] = open_invoices['invoice_url'].apply(itemgetter(3))
+    open_invoices['InvoiceID'] = open_invoices['invoice_url'].apply(itemgetter(5))
+        
     STATES = ('Brouillon', 'Facture envoyée')  # , 'Payée', 'Reçu envoyé')
     open_invoices['État'] = open_invoices.iloc[:, 6].apply(
         lambda dropdown: STATES[0] if 'Marquer envoyée' in dropdown else STATES[1]
@@ -33,6 +36,7 @@ def retrieve_open_invoices(session, nb_days=60):
     columns = {
         'RecordID': 'RecordID',
         'Facture': 'Facture',
+        'InvoiceID': 'InvoiceID',
         'Service(s)': 'Service(s)',
         'Facturé le': 'Date',
         'Montant dû': 'Montant',
@@ -69,7 +73,7 @@ def retrieve_paid_invoices(session, record_ids):
             record_invoices['RecordID'] = record_id
             record_invoices = record_invoices[list(columns)]
         except ValueError:
-            print("EXCEPTION!")
+            logger.error("EXCEPTION!")
             record_invoices = pd.DataFrame(columns=list(columns))
         finally:
             paid_invoices.append(record_invoices)
@@ -79,6 +83,7 @@ def retrieve_paid_invoices(session, record_ids):
 
     INDEX_COLS = ['RecordID', 'Date']
     paid_invoices.set_index(INDEX_COLS, inplace=True)
+    # paid_invoices.set_index('RecordID', inplace=True)
 
     return paid_invoices
 
@@ -107,7 +112,6 @@ def retrieve_invoices(session, appointments, nb_days=30):
 
     paid_invoices = []
     for record_id in appointments.index.unique(level=0):
-        print(record_id)
         client_invoices = fetch_invoices(session, record_id, state='paid')
         client_invoices['RecordID'] = record_id
         paid_invoices.append(client_invoices)
@@ -192,7 +196,21 @@ def get_record_invoices(session, record_id):
     return invoices_df
 
 
-def get_unpaid_invoices(session):
+def retrieve_unpaid_invoices(session):
+    logger.info('Retrieving unpaid invoices (including newly created)...')
+
+    # get unpaid invoices
+    unpaid_df = retrieve_open_invoices(session)
+
+    # drop useless columns
+    columns = ['Facture', 'Service(s)', 'Montant', 'InvoiceID']
+    unpaid_df = unpaid_df[columns]
+
+    logger.info(f'Found {len(unpaid_df)} unpaid invoices!')
+
+    return unpaid_df
+
+def retrieve_unpaid_invoices_old(session):
     logger.info('Retrieving unpaid invoices (including newly created)...')
 
     # get unpaid invoices

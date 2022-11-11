@@ -46,8 +46,10 @@ def profile_url(record_id):
     return endpoint_url(record_url(record_id), 'profile')
 
 
-def invoice_url(record_id, invoice_id):
-    return endpoint_url(record_url(record_id), 'invoices', invoice_id)
+def invoice_url(record_id, invoice_id=None, create=False):
+    assert bool(invoice_id) ^ bool(create), f"`invoice_id` and `create` are mutually exclusive"
+    suffix = 'create' if create else invoice_id
+    return endpoint_url(record_url(record_id), 'invoices', suffix)
 
 
 def record_invoices_url(record_id, state=None):
