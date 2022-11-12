@@ -4,7 +4,6 @@ import pandas as pd
 import requests
 import streamlit as st
 from bs4 import BeautifulSoup
-from requests.auth import HTTPBasicAuth
 from tqdm import tqdm
 
 from ..routes import profile_url, records_url

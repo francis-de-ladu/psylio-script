@@ -2,7 +2,6 @@ import json
 import logging
 import re
 from itertools import pairwise
-from pprint import pprint
 
 import requests
 import streamlit as st

@@ -8,7 +8,6 @@ import streamlit as st
 from psylio.appointments import retrieve_appointments
 from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
-                             get_newly_paid, retrieve_invoices,
                              retrieve_open_invoices, retrieve_paid_invoices,
                              retrieve_unpaid_invoices, write_unpaid_to_file)
 from psylio.records import get_records, retrieve_records_from_ids
@@ -87,7 +86,7 @@ def main():
         create_missing_invoices(session, missing_invoices.iloc[:0])
         unpaid_invoices = retrieve_unpaid_invoices(session)
         # my_print(unpaid_invoices)
-    
+
         # records = pd.DataFrame()  # get_records(session)
         newly_paid_invoices = write_unpaid_to_file(records, unpaid_invoices, unpaid_path)
         # exit()

@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timedelta
 from operator import itemgetter
 
 import pandas as pd
@@ -93,54 +92,54 @@ def retrieve_paid_invoices(session, record_ids):
     return paid_invoices
 
 
-def fetch_invoices(session, record_id, state=None):
-    segments = ['assistance-requests', record_id, 'invoices']
-    endpoint = endpoint_url(*segments, state=state)
-    resp = session.get(endpoint)
+# def fetch_invoices(session, record_id, state=None):
+#     segments = ['assistance-requests', record_id, 'invoices']
+#     endpoint = endpoint_url(*segments, state=state)
+#     resp = session.get(endpoint)
 
-    KEEP_COLS = ['Facture', 'Service(s)', 'Facturé le', 'Montant', 'État']
+#     KEEP_COLS = ['Facture', 'Service(s)', 'Facturé le', 'Montant', 'État']
 
-    try:
-        invoices = pd.read_html(resp.content)[0]
-        invoices.rename(columns={'Montant payé': 'Montant'}, inplace=True)
-        invoices = invoices[KEEP_COLS]
-    except ValueError:
-        invoices = pd.DataFrame(columns=KEEP_COLS)
-    finally:
-        return invoices
+#     try:
+#         invoices = pd.read_html(resp.content)[0]
+#         invoices.rename(columns={'Montant payé': 'Montant'}, inplace=True)
+#         invoices = invoices[KEEP_COLS]
+#     except ValueError:
+#         invoices = pd.DataFrame(columns=KEEP_COLS)
+#     finally:
+#         return invoices
 
 
-def retrieve_invoices(session, appointments, nb_days=30):
-    # TODO: ?types=income&start=2022-03-07&end=2022-03-21
-    #       &date_type=manual&categories=<service_code_here>
-    logger.info('Retrieving invoices...')
+# def retrieve_invoices(session, appointments, nb_days=30):
+#     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
+#     #       &date_type=manual&categories=<service_code_here>
+#     logger.info('Retrieving invoices...')
 
-    paid_invoices = []
-    for record_id in appointments.index.unique(level=0):
-        client_invoices = fetch_invoices(session, record_id, state='paid')
-        client_invoices['RecordID'] = record_id
-        paid_invoices.append(client_invoices)
+#     paid_invoices = []
+#     for record_id in appointments.index.unique(level=0):
+#         client_invoices = fetch_invoices(session, record_id, state='paid')
+#         client_invoices['RecordID'] = record_id
+#         paid_invoices.append(client_invoices)
 
-    KEEP_COLS = ['RecordID', 'Facture', 'Service(s)', 'Facturé le', 'Montant dû', 'État']
-    converters = {col: itemgetter(0) for col in KEEP_COLS[2:] + ['Unnamed: 6']}
+#     KEEP_COLS = ['RecordID', 'Facture', 'Service(s)', 'Facturé le', 'Montant dû', 'État']
+#     converters = {col: itemgetter(0) for col in KEEP_COLS[2:] + ['Unnamed: 6']}
 
-    # fetch open invoices (those already created, but not paid)
-    open_invoices = retrieve_open_invoices(session, nb_days)
+#     # fetch open invoices (those already created, but not paid)
+#     open_invoices = retrieve_open_invoices(session, nb_days)
 
-    invoices = pd.concat([open_invoices, *paid_invoices])
-    invoices.rename(columns={'Facturé le': 'Date'}, inplace=True)
+#     invoices = pd.concat([open_invoices, *paid_invoices])
+#     invoices.rename(columns={'Facturé le': 'Date'}, inplace=True)
 
-    new_index = ['RecordID', 'Date']
-    invoices.set_index(new_index, inplace=True)
+#     new_index = ['RecordID', 'Date']
+#     invoices.set_index(new_index, inplace=True)
 
-    # normalize `amount` column, then convert to float
-    invoices['Montant'] = invoices['Montant'].str.strip('\xa0 $')
-    invoices['Montant'] = invoices['Montant'].str.replace(',', '.')
-    invoices['Montant'] = invoices['Montant'].astype(float)
+#     # normalize `amount` column, then convert to float
+#     invoices['Montant'] = invoices['Montant'].str.strip('\xa0 $')
+#     invoices['Montant'] = invoices['Montant'].str.replace(',', '.')
+#     invoices['Montant'] = invoices['Montant'].astype(float)
 
-    logging.info(f'Found a total of {len(invoices)} invoices!')
+#     logging.info(f'Found a total of {len(invoices)} invoices!')
 
-    return invoices
+#     return invoices
 
 
 def get_record_invoices(session, record_id):
