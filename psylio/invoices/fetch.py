@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from operator import itemgetter
 
 import pandas as pd
+import requests
+import streamlit as st
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -11,11 +13,13 @@ from ..routes import open_invoices_url, record_invoices_url
 logger = logging.getLogger(__name__)
 
 
-def retrieve_open_invoices(session, nb_days=60):
+@st.cache(hash_funcs={requests.Session: lambda _: None})
+def retrieve_open_invoices(session, nb_days=60, second_call=False):
     columns = ['Service(s)', 'Facturé le', 'Montant dû', 'État', 'Unnamed: 6']
     converters = {col: itemgetter(0) for col in columns}
 
-    logger.info('Retrieving open invoices...')
+    if not second_call:
+        logger.info('Retrieving open invoices...')
     resp = session.get(open_invoices_url(nb_days))
 
     # TODO: handle possible exception
@@ -52,6 +56,7 @@ def retrieve_open_invoices(session, nb_days=60):
     return open_invoices
 
 
+@st.cache(hash_funcs={requests.Session: lambda _: None})
 def retrieve_paid_invoices(session, record_ids):
     columns = {
         'RecordID': 'RecordID',
@@ -138,30 +143,6 @@ def retrieve_invoices(session, appointments, nb_days=30):
     return invoices
 
 
-def retrieve_invoices_old(session, records_df):
-    # TODO: ?types=income&start=2022-03-07&end=2022-03-21
-    #       &date_type=manual&categories=<service_code_here>
-    logger.info('Retrieving invoices...')
-
-    all_invoices = []
-    for record_id, _ in records_df.iterrows():
-        record_invoices = get_record_invoices(session, record_id)
-        all_invoices.append(record_invoices)
-
-    invoices_df = pd.concat(all_invoices)
-    invoices_df.rename(columns={'Facturé le': 'Date'}, inplace=True)
-
-    new_index = ['record_id', 'Date']
-    invoices_df.set_index(new_index, inplace=True)
-
-    columns = ['invoice_id', 'Facture', 'Service(s)', 'État', 'Montant dû', 'Montant payé']
-    invoices_df = invoices_df[columns]
-
-    logging.info(f'Found a total of {len(invoices_df)} invoices!')
-
-    return invoices_df
-
-
 def get_record_invoices(session, record_id):
 
     def helper(endpoint):
@@ -196,38 +177,20 @@ def get_record_invoices(session, record_id):
     return invoices_df
 
 
+@st.cache(hash_funcs={requests.Session: lambda _: None})
 def retrieve_unpaid_invoices(session):
     logger.info('Retrieving unpaid invoices (including newly created)...')
 
-    # get unpaid invoices
-    unpaid_df = retrieve_open_invoices(session)
+    # retrieve unpaid invoices
+    unpaid_invoices = retrieve_open_invoices(session, second_call=True)
 
     # drop useless columns
     columns = ['Facture', 'Service(s)', 'Montant', 'InvoiceID']
-    unpaid_df = unpaid_df[columns]
+    unpaid_invoices = unpaid_invoices[columns]
 
-    logger.info(f'Found {len(unpaid_df)} unpaid invoices!')
+    logger.info(f'Found {len(unpaid_invoices)} unpaid invoices!')
 
-    return unpaid_df
-
-def retrieve_unpaid_invoices_old(session):
-    logger.info('Retrieving unpaid invoices (including newly created)...')
-
-    # get unpaid invoices
-    unpaid_df = retrieve_open_invoices(session)
-    unpaid_df.rename(columns={'Facturé le': 'Date'}, inplace=True)
-
-    # set new index columns
-    new_index = ['record_id', 'Date']
-    unpaid_df.set_index(new_index, inplace=True)
-
-    # drop useless columns
-    columns = ['Facture', 'Service(s)', 'Montant dû', 'invoice_id']
-    unpaid_df = unpaid_df[columns]
-
-    logger.info(f'Found {len(unpaid_df)} unpaid invoices!')
-
-    return unpaid_df
+    return unpaid_invoices
 
 
 def retrieve_open_invoices_old(session):

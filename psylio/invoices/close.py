@@ -12,27 +12,22 @@ from ..utils import request_confirm
 logger = logging.getLogger(__name__)
 
 
-def close_paid_invoices(email, password, unpaid_df, newly_paid_df):
-    columns = ['Facture', 'Date', 'Client 1',
-               'Montant dû', 'Date paiement', 'Type paiement']
-    print(newly_paid_df[columns])
-    request_confirm(f'Mark {len(newly_paid_df)} invoice(s) as paid?')
-
-    if newly_paid_df.empty:
+def close_paid_invoices(email, password, unpaid_invoices, newly_paid_invoices):
+    if newly_paid_invoices.empty:
         return
+
+    columns = ['Facture', 'Date', 'Client 1', 'Montant dû', 'Date paiement', 'Type paiement']
+    request_confirm(f'Mark {len(newly_paid_invoices)} invoice(s) as paid?')
 
     # instantiate driver
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service)
     driver.get('https://admin.psylio.com')
 
-    login_form = driver.find_element(
-        By.XPATH, '//form[@action="https://admin.psylio.com/login"]')
+    login_form = driver.find_element(By.XPATH, '//form[@action="https://admin.psylio.com/login"]')
 
-    email_field = login_form.find_element(
-        By.XPATH, '//input[@name="login[email]"]')
-    password_field = login_form.find_element(
-        By.XPATH, '//input[@name="login[password]"]')
+    email_field = login_form.find_element(By.XPATH, '//input[@name="login[email]"]')
+    password_field = login_form.find_element(By.XPATH, '//input[@name="login[password]"]')
 
     email_field.send_keys(email)
     password_field.send_keys(password)
@@ -40,12 +35,12 @@ def close_paid_invoices(email, password, unpaid_df, newly_paid_df):
     login_form.submit()
 
     # reindex dataframes
-    unpaid_df = unpaid_df.reset_index().set_index('Facture')
-    newly_paid_df = newly_paid_df.set_index('Facture')
+    unpaid_invoices = unpaid_invoices.reset_index().set_index('Facture')
+    newly_paid_invoices = newly_paid_invoices.set_index('Facture')
 
     # get newly paid invoices
     columns = ['Date paiement', 'Type paiement']
-    to_close_df = newly_paid_df[columns].join(unpaid_df, on='Facture')
+    to_close_df = newly_paid_invoices[columns].join(unpaid_invoices, on='Facture')
 
     # mark invoices as paid and send receipts
     for _, invoice in to_close_df.iterrows():
@@ -77,25 +72,21 @@ def close_invoice(driver, invoice):
 
 def mark_invoice_as_paid(driver, payment_date, payment_types):
     # open the form
-    mark_as_paid_btn = driver.find_element(
-        By.XPATH, '//a[@data-target="#mark-as-paid-modal"]')
+    mark_as_paid_btn = driver.find_element(By.XPATH, '//a[@data-target="#mark-as-paid-modal"]')
     mark_as_paid_btn.click()
     time.sleep(1)
 
     # select the form
-    mark_as_paid_form = driver.find_element(
-        By.XPATH, '//form[@class="paymentType"]')
+    mark_as_paid_form = driver.find_element(By.XPATH, '//form[@class="paymentType"]')
 
     # set payment date
-    date_field = mark_as_paid_form.find_element(
-        By.XPATH, '//input[@name="paymentDate"]')
+    date_field = mark_as_paid_form.find_element(By.XPATH, '//input[@name="paymentDate"]')
     driver.execute_script("arguments[0].value = ''", date_field)
     date_field.send_keys(str(payment_date))
     date_field.send_keys(Keys.RETURN)
 
     # set payment type
-    type_field = mark_as_paid_form.find_element(
-        By.XPATH, f'//input[@name="paymentTypes[{payment_types}]"]')
+    type_field = mark_as_paid_form.find_element(By.XPATH, f'//input[@name="paymentTypes[{payment_types}]"]')
     type_field.click()
 
     # submit the form
@@ -104,12 +95,10 @@ def mark_invoice_as_paid(driver, payment_date, payment_types):
 
 def send_invoice_receipt(driver, invoice_url):
     # open the form
-    send_receipt_btn = driver.find_element(
-        By.XPATH, '//a[@data-target="#send-receipt-by-email-modal"]')
+    send_receipt_btn = driver.find_element(By.XPATH, '//a[@data-target="#send-receipt-by-email-modal"]')
     send_receipt_btn.click()
     time.sleep(1)
 
     # select and submit the form
-    send_receipt_form = driver.find_element(
-        By.XPATH, f'//form[@action="{invoice_url}/receipt/email"]')
+    send_receipt_form = driver.find_element(By.XPATH, f'//form[@action="{invoice_url}/receipt/email"]')
     send_receipt_form.submit()

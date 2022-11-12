@@ -3,24 +3,13 @@ import os
 import subprocess
 import time
 from datetime import date, datetime
+
 import pandas as pd
 import psutil
 import streamlit as st
 
 logger = logging.getLogger(__name__)
 
-def set_payment_method(invoices, idx, *args, **kwargs):
-    print("set_payment_method")
-    pass
-
-def set_payment_date(invoices, idx, *args, **kwargs):
-    print("set_payment_date")
-    pass
-
-
-def mark_as_paid(invoices):
-    print("mark_as_paid")
-    print(invoices)
 
 def write_unpaid_to_file(records, invoices, unpaid_path):
     directory = os.path.dirname(unpaid_path)
@@ -28,21 +17,7 @@ def write_unpaid_to_file(records, invoices, unpaid_path):
 
     invoices = invoices.join(records, on='RecordID')
     invoices.reset_index(inplace=True, drop=False)
-    print(invoices.columns)
-    print(invoices)
-    invoices['Client'] = invoices.apply(lambda inv:' et '.join(filter(bool, inv[['Client 1', 'Client 2']])), axis=1)
-    
-
-    # columns = ['Facture', 'Date', 'Numéro de dossier',
-    #            'Client 1', 'Client 2', 'Service(s)', 'Montant']
-    # invoices = invoices[columns].sort_values('Date')
-
-    # invoices.set_index(['Facture', 'Date'], inplace=True)
-    display_cols = ['Facture', 'Date', 'Client']
-    print(invoices[display_cols])
-    # invoices[['Date paiement', 'Comptant', 'Interac']] = ''
-
-    st.set_page_config(layout='wide')
+    invoices['Client(s)'] = invoices.apply(lambda inv: ' et '.join(filter(bool, inv[['Client 1', 'Client 2']])), axis=1)
 
     with st.form("paid_invoices"):
         st.markdown(
@@ -69,55 +44,33 @@ def write_unpaid_to_file(records, invoices, unpaid_path):
             cols = st.columns([3, 2, 5, 6, 3])
             cols[0].write(inv['Facture'])
             cols[1].write(inv['Date'])
-            cols[2].write(inv['Client'])
-            cols[3].radio(
-                "Mode de paiement",
-                payment_options,
-                key=f"mode_{inv['Facture']}",
-                on_change=set_payment_method(invoices, idx),
-                horizontal=True,
-                label_visibility='collapsed',
+            cols[2].write(inv['Client(s)'])
+            invoices.loc[idx, 'Mode paiement'] = \
+                cols[3].radio(
+                    "Mode de paiement",
+                    payment_options,
+                    key=f"mode_{inv['Facture']}",
+                    horizontal=True,
+                    label_visibility='collapsed',
             )
-            cols[4].date_input(
-                "Date de paiement",
-                min_value=datetime.strptime(inv['Date'], "%Y-%m-%d"),
-                max_value=date.today(),
-                key=f"date_{inv['Facture']}",
-                on_change=set_payment_date(invoices, idx),
-                label_visibility='collapsed',
+            invoices.loc[idx, 'Date paiement'] = \
+                cols[4].date_input(
+                    "Date de paiement",
+                    min_value=datetime.strptime(inv['Date'], "%Y-%m-%d"),
+                    max_value=date.today(),
+                    key=f"date_{inv['Facture']}",
+                    label_visibility='collapsed',
             )
 
         nb_cols = 7
         columns = st.columns(nb_cols)
-        submitted = columns[nb_cols // 2].form_submit_button(
-            "Marquer payées",
-            mark_as_paid(invoices),
-        )
+        submitted = columns[nb_cols // 2].form_submit_button("Marquer payées")
 
-        if submitted:
-            "submitted1"
-            print(invoices)
-            
     if submitted:
-        "submitted2"
-        print(invoices)
-
-    time.sleep(1000)
-    
-
-    # # invoices.to_csv(unpaid_path)
-
-    # if os.name == 'nt':
-    #     full_path = os.path.join(os.getcwd(), unpaid_path)
-    #     p = subprocess.Popen(
-    #         f'start excel {full_path}', stdout=subprocess.PIPE, shell=True)
-
-    #     while True:
-    #         time.sleep(1)
-    #         if "EXCEL.EXE" not in (p.name() for p in psutil.process_iter()):
-    #             break
-    # else:
-    #     os.popen(f'libreoffice --calc {unpaid_path}').read()
+        newly_paid_invoices = invoices.loc[invoices['Mode paiement'] != "Non payé"]
+        return newly_paid_invoices
+    else:
+        return invoices.iloc[:0]
 
 
 def get_newly_paid(unpaid_path):

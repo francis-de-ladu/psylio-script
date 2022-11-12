@@ -1,13 +1,16 @@
+import streamlit as st
 import json
 import logging
 
 import requests
 from bs4 import BeautifulSoup
-from ..routes import login_url, base_url
+
+from ..routes import base_url, login_url
 
 logger = logging.getLogger(__name__)
 
 
+@st.cache(allow_output_mutation=True)
 def login(email, password):
     session = requests.Session()
     resp = session.get(base_url())

@@ -1,14 +1,18 @@
 import logging
+import time
 from functools import reduce
 from operator import getitem
 
 import pandas as pd
+import requests
+import streamlit as st
 
 from ..routes import appointments_url
 
 logger = logging.getLogger(__name__)
 
 
+@st.cache(hash_funcs={requests.Session: lambda _: None}, allow_output_mutation=True)
 def retrieve_appointments(session, nb_days=30):
     columns = dict(
         startDate='Date',

@@ -3,14 +3,17 @@ import logging
 import os
 
 import pandas as pd
+import streamlit as st
 
 from psylio.appointments import retrieve_appointments
 from psylio.auth import login
 from psylio.invoices import (close_paid_invoices, create_missing_invoices,
-                             get_newly_paid, retrieve_unpaid_invoices,
-                             retrieve_invoices, retrieve_open_invoices,
-                             retrieve_paid_invoices, write_unpaid_to_file)
+                             get_newly_paid, retrieve_invoices,
+                             retrieve_open_invoices, retrieve_paid_invoices,
+                             retrieve_unpaid_invoices, write_unpaid_to_file)
 from psylio.records import get_records, retrieve_records_from_ids
+
+st.set_page_config(layout='wide')
 
 
 def my_print(something):
@@ -46,8 +49,8 @@ def main():
 
     try:
         # retrieve recent appointments
-        appointments = retrieve_appointments(session)
-        my_print(appointments)
+        appointments = retrieve_appointments(session, 30)
+        # my_print(appointments)
 
         # retrieve open invoices and match them with appointments
         open_invoices = retrieve_open_invoices(session)
@@ -65,7 +68,7 @@ def main():
 
         # group all invoices with unsent receipts together
         invoices = pd.concat([open_invoices, paid_invoices])
-        my_print(invoices)
+        # my_print(invoices)
 
         # extract invoices that must be created as well as associated record infos
         missing_invoices = invoices.loc[invoices['Facture'].isna()]
@@ -83,19 +86,18 @@ def main():
         missing_invoices.where(pd.notnull(missing_invoices), None, inplace=True)
         create_missing_invoices(session, missing_invoices.iloc[:0])
         unpaid_invoices = retrieve_unpaid_invoices(session)
-        # print(unpaid_invoices)
-        # print(appointments)
-        # unpaid_invoices = appointments.join(unpaid_invoices)
-        my_print(unpaid_invoices)
-
+        # my_print(unpaid_invoices)
+    
         # records = pd.DataFrame()  # get_records(session)
-        write_unpaid_to_file(records, unpaid_invoices, unpaid_path)
-        exit()
-        newly_paid = get_newly_paid(unpaid_path)
+        newly_paid_invoices = write_unpaid_to_file(records, unpaid_invoices, unpaid_path)
+        # exit()
+        # newly_paid = get_newly_paid(unpaid_path)
 
-        close_paid_invoices(email, password, unpaid_invoices, newly_paid)
-        logging.info('Script completed successfully!')
-        input("Press Enter to exit...")
+        if not newly_paid_invoices.empty:
+            my_print(newly_paid_invoices)
+            close_paid_invoices(email, password, unpaid_invoices, newly_paid_invoices)
+            logging.info('Script completed successfully!')
+            input("Press Enter to exit...")
     finally:
         if os.path.isfile(unpaid_path):
             os.remove(unpaid_path)

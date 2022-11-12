@@ -1,4 +1,5 @@
 from urllib.parse import urlencode
+
 from ..utils import get_date_range
 
 PSYLIO_URL = 'https://admin.psylio.com'
