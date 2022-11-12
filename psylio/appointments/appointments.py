@@ -1,5 +1,4 @@
 import logging
-import time
 from functools import reduce
 from operator import getitem
 
@@ -12,8 +11,8 @@ from ..routes import appointments_url
 logger = logging.getLogger(__name__)
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None}, allow_output_mutation=True)
-def retrieve_appointments(session, nb_days=30):
+@st.cache(hash_funcs={requests.Session: lambda _: None}, allow_output_mutation=True, suppress_st_warning=True)
+def retrieve_appointments(session, records, nb_days=30):
     columns = dict(
         startDate='Date',
         startHour='Heure',
@@ -21,7 +20,7 @@ def retrieve_appointments(session, nb_days=30):
         title='Titre',
     )
 
-    logger.info('Retrieving appointments...')
+    st.write('Retrieving appointments...')
     resp = session.get(appointments_url(nb_days))
 
     # retrieve appointments from response
@@ -35,15 +34,21 @@ def retrieve_appointments(session, nb_days=30):
     appointments = pd.DataFrame(appointments)
     appointments.rename(columns=columns, inplace=True)
 
-    # reindex the DataFrame
-    INDEX_COLS = ['RecordID', 'Date']
-    appointments.sort_values(INDEX_COLS, inplace=True)
-    appointments.set_index(INDEX_COLS, inplace=True)
-
     # removed canceled appointments
     mask = ~appointments['Titre'].str.contains('annulé')
     appointments = appointments.loc[mask]
 
-    logger.info((f'Found {len(appointments)} appointments and {sum(~mask)} canceled over last {nb_days} days!'))
+    # add record numbers to appointments
+    appointments = appointments.set_index('RecordID').join(records)
+
+    display_cols = ['Numéro', 'Date', 'Heure', 'Titre']
+    st.dataframe(appointments[display_cols].reset_index(drop=False))
+
+    st.write((f'Found {len(appointments)} appointments and {sum(~mask)} canceled over last {nb_days} days!'))
+
+    # reindex the DataFrame
+    INDEX_COLS = ['RecordID', 'Date']
+    appointments.sort_values(INDEX_COLS, inplace=True)
+    appointments.set_index(INDEX_COLS, inplace=True)
 
     return appointments

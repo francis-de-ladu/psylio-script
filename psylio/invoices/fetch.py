@@ -12,13 +12,13 @@ from ..routes import open_invoices_url, record_invoices_url
 logger = logging.getLogger(__name__)
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None})
+@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
 def retrieve_open_invoices(session, nb_days=60, second_call=False):
     columns = ['Service(s)', 'Facturé le', 'Montant dû', 'État', 'Unnamed: 6']
     converters = {col: itemgetter(0) for col in columns}
 
     if not second_call:
-        logger.info('Retrieving open invoices...')
+        st.write('Retrieving open invoices...')
     resp = session.get(open_invoices_url(nb_days))
 
     # TODO: handle possible exception
@@ -55,7 +55,7 @@ def retrieve_open_invoices(session, nb_days=60, second_call=False):
     return open_invoices
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None})
+@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
 def retrieve_paid_invoices(session, record_ids):
     columns = {
         'RecordID': 'RecordID',
@@ -66,7 +66,7 @@ def retrieve_paid_invoices(session, record_ids):
         'État': 'État',
     }
 
-    logger.info('Retrieving paid invoices...')
+    st.write('Retrieving paid invoices...')
 
     paid_invoices = []
     for record_id in tqdm(record_ids):
@@ -112,7 +112,7 @@ def retrieve_paid_invoices(session, record_ids):
 # def retrieve_invoices(session, appointments, nb_days=30):
 #     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
 #     #       &date_type=manual&categories=<service_code_here>
-#     logger.info('Retrieving invoices...')
+#     st.write('Retrieving invoices...')
 
 #     paid_invoices = []
 #     for record_id in appointments.index.unique(level=0):
@@ -176,9 +176,9 @@ def get_record_invoices(session, record_id):
     return invoices_df
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None})
+@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
 def retrieve_unpaid_invoices(session):
-    logger.info('Retrieving unpaid invoices (including newly created)...')
+    st.write('Retrieving unpaid invoices (including newly created)...')
 
     # retrieve unpaid invoices
     unpaid_invoices = retrieve_open_invoices(session, second_call=True)
@@ -187,7 +187,7 @@ def retrieve_unpaid_invoices(session):
     columns = ['Facture', 'Service(s)', 'Montant', 'InvoiceID']
     unpaid_invoices = unpaid_invoices[columns]
 
-    logger.info(f'Found {len(unpaid_invoices)} unpaid invoices!')
+    st.write(f'Found {len(unpaid_invoices)} unpaid invoices!')
 
     return unpaid_invoices
 

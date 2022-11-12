@@ -44,7 +44,7 @@ def close_paid_invoices(email, password, unpaid_invoices, newly_paid_invoices):
 
     # mark invoices as paid and send receipts
     for _, invoice in to_close_df.iterrows():
-        logger.info(f'Closing invoice {invoice.name}...')
+        st.write(f'Closing invoice {invoice.name}...')
         close_invoice(driver, invoice)
 
     time.sleep(3)

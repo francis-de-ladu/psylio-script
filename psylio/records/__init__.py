@@ -1,6 +1,6 @@
-from .records import get_records, retrieve_records_from_ids
+from .records import get_record_infos_from_ids, retrieve_records
 
 __all__ = [
-    'get_records',
-    'retrieve_records_from_ids',
+    'retrieve_records',
+    'get_record_infos_from_ids',
 ]

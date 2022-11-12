@@ -10,7 +10,7 @@ from ..routes import base_url, login_url
 logger = logging.getLogger(__name__)
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
 def login(email, password):
     session = requests.Session()
     resp = session.get(base_url())
@@ -31,18 +31,18 @@ def login(email, password):
         'Content-Type': 'application/json',
     })
 
-    logger.info('Attempting login...')
+    st.write('Attempting login...')
     resp = session.post(login_url(), data=json.dumps(payload))
 
     soup = BeautifulSoup(resp.content, 'html.parser')
     alert = soup.find('div', {'class': 'alert alert-danger'})
 
     if alert:
-        logger.info('Invalid username or password.')
+        st.write('Invalid username or password.')
         return
 
     update_headers(session)
-    logger.info('Login successful!')
+    st.write('Login successful!')
 
     return session
 

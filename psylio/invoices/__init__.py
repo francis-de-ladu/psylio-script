@@ -2,7 +2,7 @@ from .close import close_paid_invoices
 from .create import create_missing_invoices
 from .fetch import (retrieve_open_invoices, retrieve_paid_invoices,
                     retrieve_unpaid_invoices)
-from .io import get_newly_paid, write_unpaid_to_file
+from .io import get_newly_paid, display_unpaid_invoices
 
 __all__ = [
     'close_paid_invoices',
@@ -12,5 +12,5 @@ __all__ = [
     'retrieve_open_invoices',
     'retrieve_paid_invoices',
     'get_newly_paid',
-    'write_unpaid_to_file',
+    'display_unpaid_invoices',
 ]

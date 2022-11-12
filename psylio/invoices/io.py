@@ -8,7 +8,7 @@ import streamlit as st
 logger = logging.getLogger(__name__)
 
 
-def write_unpaid_to_file(records, invoices, unpaid_path):
+def display_unpaid_invoices(records, invoices, unpaid_path):
     directory = os.path.dirname(unpaid_path)
     os.makedirs(directory, exist_ok=True)
 

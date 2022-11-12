@@ -14,12 +14,12 @@ from ..utils import request_confirm
 logger = logging.getLogger(__name__)
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None})
+@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
 def create_missing_invoices(session, missing_invoices):
-    logger.info('Creating invoices for appointments not having one already...')
+    st.write('Creating invoices for appointments not having one already...')
 
     if missing_invoices.empty:
-        logger.info('There were no missing invoices.')
+        st.write('There were no missing invoices.')
     else:
         print(missing_invoices[['Heure', 'Titre']])
         request_confirm(f'The above {len(missing_invoices)} invoice(s) will be created, is this correct?')
@@ -31,7 +31,7 @@ def create_missing_invoices(session, missing_invoices):
 
 def create_invoice(session, invoice, service='Sexologie psychothérapie'):
     record_id, appoint_date, start_time = invoice[['RecordID', 'Date', 'Heure']]
-    logger.info(f'Creating invoice for {appoint_date} at {start_time}...')
+    st.write(f'Creating invoice for {appoint_date} at {start_time}...')
 
     resp = session.get(invoice_url(record_id, create=True))
     soup = BeautifulSoup(resp.content, 'html.parser')
