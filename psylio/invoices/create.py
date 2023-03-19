@@ -3,7 +3,6 @@ import logging
 import re
 from itertools import pairwise
 
-import requests
 import streamlit as st
 from bs4 import BeautifulSoup
 
@@ -14,8 +13,8 @@ from ..utils import request_confirm
 logger = logging.getLogger(__name__)
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
-def create_missing_invoices(session, missing_invoices):
+@st.cache_data()
+def create_missing_invoices(_session, missing_invoices):
     st.write('Creating invoices for appointments not having one already...')
 
     if missing_invoices.empty:
@@ -26,7 +25,7 @@ def create_missing_invoices(session, missing_invoices):
 
     missing_invoices.reset_index(inplace=True, drop=False)
     for _, invoice in missing_invoices.iterrows():
-        create_invoice(session, invoice)
+        create_invoice(_session, invoice)
 
 
 def create_invoice(session, invoice, service='Sexologie psychothérapie'):

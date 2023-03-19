@@ -3,7 +3,6 @@ from functools import reduce
 from operator import getitem
 
 import pandas as pd
-import requests
 import streamlit as st
 
 from ..routes import appointments_url
@@ -11,8 +10,8 @@ from ..routes import appointments_url
 logger = logging.getLogger(__name__)
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None}, allow_output_mutation=True, suppress_st_warning=True)
-def retrieve_appointments(session, records, nb_days=30):
+@st.cache_data()
+def retrieve_appointments(_session, records, nb_days=30):
     columns = dict(
         startDate='Date',
         startHour='Heure',
@@ -21,7 +20,7 @@ def retrieve_appointments(session, records, nb_days=30):
     )
 
     st.write('Retrieving appointments...')
-    resp = session.get(appointments_url(nb_days))
+    resp = _session.get(appointments_url(nb_days))
 
     # retrieve appointments from response
     appointments = []
@@ -40,6 +39,7 @@ def retrieve_appointments(session, records, nb_days=30):
 
     # add record numbers to appointments
     appointments = appointments.set_index('RecordID').join(records)
+    print(appointments)
 
     display_cols = ['Numéro', 'Date', 'Heure', 'Titre']
     st.dataframe(appointments[display_cols].reset_index(drop=False))
@@ -48,6 +48,7 @@ def retrieve_appointments(session, records, nb_days=30):
 
     # reindex the DataFrame
     INDEX_COLS = ['RecordID', 'Date']
+    appointments.reset_index(drop=False, inplace=True)
     appointments.sort_values(INDEX_COLS, inplace=True)
     appointments.set_index(INDEX_COLS, inplace=True)
 

@@ -10,7 +10,7 @@ from ..routes import base_url, login_url
 logger = logging.getLogger(__name__)
 
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+@st.cache_data()
 def login(email, password):
     session = requests.Session()
     resp = session.get(base_url())

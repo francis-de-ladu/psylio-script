@@ -2,7 +2,6 @@ import logging
 from operator import itemgetter
 
 import pandas as pd
-import requests
 import streamlit as st
 from bs4 import BeautifulSoup
 from tqdm import tqdm
@@ -12,17 +11,19 @@ from ..routes import open_invoices_url, record_invoices_url
 logger = logging.getLogger(__name__)
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
-def retrieve_open_invoices(session, nb_days=60, second_call=False):
+@st.cache_data()
+def retrieve_open_invoices(_session, nb_days=60, is_first_call=True):
     columns = ['Service(s)', 'Facturé le', 'Montant dû', 'État', 'Unnamed: 6']
     converters = {col: itemgetter(0) for col in columns}
 
-    if not second_call:
+    if is_first_call:
         st.write('Retrieving open invoices...')
-    resp = session.get(open_invoices_url(nb_days))
+    resp = _session.get(open_invoices_url(nb_days))
 
-    # TODO: handle possible exception
-    open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
+    try:
+        open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
+    except IndexError:  # if there's no second <table> element, then there're no open invoices
+        return
 
     # extract record/invoice IDs
     open_invoices[['Facture', 'invoice_url']] = open_invoices['Facture'].tolist()
@@ -55,8 +56,8 @@ def retrieve_open_invoices(session, nb_days=60, second_call=False):
     return open_invoices
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
-def retrieve_paid_invoices(session, record_ids):
+@st.cache_data()
+def retrieve_paid_invoices(_session, record_ids):
     columns = {
         'RecordID': 'RecordID',
         'Facture': 'Facture',
@@ -70,7 +71,7 @@ def retrieve_paid_invoices(session, record_ids):
 
     paid_invoices = []
     for record_id in tqdm(record_ids):
-        resp = session.get(record_invoices_url(record_id, state='paid'))
+        resp = _session.get(record_invoices_url(record_id, state='paid'))
 
         try:
             record_invoices = pd.read_html(resp.content)[0]
@@ -92,10 +93,10 @@ def retrieve_paid_invoices(session, record_ids):
     return paid_invoices
 
 
-# def fetch_invoices(session, record_id, state=None):
+# def fetch_invoices(_session, record_id, state=None):
 #     segments = ['assistance-requests', record_id, 'invoices']
 #     endpoint = endpoint_url(*segments, state=state)
-#     resp = session.get(endpoint)
+#     resp = _session.get(endpoint)
 
 #     KEEP_COLS = ['Facture', 'Service(s)', 'Facturé le', 'Montant', 'État']
 
@@ -109,14 +110,14 @@ def retrieve_paid_invoices(session, record_ids):
 #         return invoices
 
 
-# def retrieve_invoices(session, appointments, nb_days=30):
+# def retrieve_invoices(_session, appointments, nb_days=30):
 #     # TODO: ?types=income&start=2022-03-07&end=2022-03-21
 #     #       &date_type=manual&categories=<service_code_here>
 #     st.write('Retrieving invoices...')
 
 #     paid_invoices = []
 #     for record_id in appointments.index.unique(level=0):
-#         client_invoices = fetch_invoices(session, record_id, state='paid')
+#         client_invoices = fetch_invoices(_session, record_id, state='paid')
 #         client_invoices['RecordID'] = record_id
 #         paid_invoices.append(client_invoices)
 
@@ -124,7 +125,7 @@ def retrieve_paid_invoices(session, record_ids):
 #     converters = {col: itemgetter(0) for col in KEEP_COLS[2:] + ['Unnamed: 6']}
 
 #     # fetch open invoices (those already created, but not paid)
-#     open_invoices = retrieve_open_invoices(session, nb_days)
+#     open_invoices = retrieve_open_invoices(_session, nb_days)
 
 #     invoices = pd.concat([open_invoices, *paid_invoices])
 #     invoices.rename(columns={'Facturé le': 'Date'}, inplace=True)
@@ -142,11 +143,11 @@ def retrieve_paid_invoices(session, record_ids):
 #     return invoices
 
 
-def get_record_invoices(session, record_id):
+def get_record_invoices(_session, record_id):
 
     def helper(endpoint):
         try:
-            resp = session.get(endpoint)
+            resp = _session.get(endpoint)
             soup = BeautifulSoup(resp.content, 'html.parser')
             tbody = soup.find('table').tbody
 
@@ -176,12 +177,12 @@ def get_record_invoices(session, record_id):
     return invoices_df
 
 
-@st.cache(hash_funcs={requests.Session: lambda _: None}, suppress_st_warning=True)
-def retrieve_unpaid_invoices(session):
+@st.cache_data()
+def retrieve_unpaid_invoices(_session):
     st.write('Retrieving unpaid invoices (including newly created)...')
 
     # retrieve unpaid invoices
-    unpaid_invoices = retrieve_open_invoices(session, second_call=True)
+    unpaid_invoices = retrieve_open_invoices(_session, is_first_call=False)
 
     # drop useless columns
     columns = ['Facture', 'Service(s)', 'Montant', 'InvoiceID']
@@ -192,13 +193,13 @@ def retrieve_unpaid_invoices(session):
     return unpaid_invoices
 
 
-def retrieve_open_invoices_old(session):
+def retrieve_open_invoices_old(_session):
     page = 1
     unpaid_pages = []
 
     while True:
         # fetch next page
-        resp = session.get(f'https://admin.psylio.com/invoices?page={page}')
+        resp = _session.get(f'https://admin.psylio.com/invoices?page={page}')
 
         try:
             # extract invoices from html

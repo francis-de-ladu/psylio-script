@@ -69,14 +69,13 @@ def main():
 
             # retrieve open invoices and match them with appointments
             open_invoices = retrieve_open_invoices(session)
-            open_invoices = appointments.join(open_invoices)
-            open_invoices.dropna(inplace=True)
-
-            # only keep appointments without invoice
-            appointments.drop(open_invoices.index, inplace=True)
+            if open_invoices is not None:
+                # only keep appointments without invoice
+                open_invoices = appointments.join(open_invoices).dropna()
+                appointments.drop(open_invoices.index, inplace=True)
 
             # retrieve paid invoices and match them with appointments
-            record_ids = appointments.index.unique(level=0)
+            record_ids = appointments.index.unique(level=0).tolist()
             paid_invoices = retrieve_paid_invoices(session, record_ids)
             paid_invoices = appointments.join(paid_invoices)
             paid_invoices = paid_invoices.loc[paid_invoices['État'] != 'Reçu envoyé']
@@ -87,7 +86,7 @@ def main():
 
             # extract invoices that must be created as well as associated record infos
             missing_invoices = invoices.loc[invoices['Facture'].isna()]
-            record_ids = missing_invoices.index.unique(level=0)
+            record_ids = missing_invoices.index.unique(level=0).tolist()
             records = get_record_infos_from_ids(session, record_ids)
             # my_print(records)
 
