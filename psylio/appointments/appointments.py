@@ -25,7 +25,7 @@ def retrieve_appointments(_session, records, nb_days=30):
     # retrieve appointments from response
     appointments = []
     for entry in resp.json():
-        data = entry['modal']['appointment']
+        data = entry['data']['appointment']
         infos = {key: reduce(getitem, key.split('__'), data) for key in columns}
         appointments.append(infos)
 
@@ -39,10 +39,9 @@ def retrieve_appointments(_session, records, nb_days=30):
 
     # add record numbers to appointments
     appointments = appointments.set_index('RecordID').join(records)
-    print(appointments)
 
     display_cols = ['Numéro', 'Date', 'Heure', 'Titre']
-    st.dataframe(appointments[display_cols].reset_index(drop=False))
+    st.dataframe(appointments[display_cols].reset_index(drop=False), hide_index=True)
 
     st.write((f'Found {len(appointments)} appointments and {sum(~mask)} canceled over last {nb_days} days!'))
 

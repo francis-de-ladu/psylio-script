@@ -14,6 +14,7 @@ def display_unpaid_invoices(records, invoices, unpaid_path):
 
     invoices = invoices.join(records, on='RecordID')
     invoices.reset_index(inplace=True, drop=False)
+    st.dataframe(invoices)
     invoices['Client(s)'] = invoices.apply(lambda inv: ' et '.join(filter(bool, inv[['Client 1', 'Client 2']])), axis=1)
 
     with st.form("paid_invoices"):

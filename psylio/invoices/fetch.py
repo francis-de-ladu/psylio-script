@@ -4,11 +4,12 @@ from operator import itemgetter
 import pandas as pd
 import streamlit as st
 from bs4 import BeautifulSoup
+from loguru import logger
 from tqdm import tqdm
 
 from ..routes import open_invoices_url, record_invoices_url
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 @st.cache_data()
@@ -16,28 +17,8 @@ def retrieve_open_invoices(_session, nb_days=60, is_first_call=True):
     columns = ['Service(s)', 'Facturé le', 'Montant dû', 'État', 'Unnamed: 6']
     converters = {col: itemgetter(0) for col in columns}
 
-    if is_first_call:
-        st.write('Retrieving open invoices...')
-    resp = _session.get(open_invoices_url(nb_days))
-
-    try:
-        open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
-    except IndexError:  # if there's no second <table> element, then there're no open invoices
-        return
-
-    # extract record/invoice IDs
-    open_invoices[['Facture', 'invoice_url']] = open_invoices['Facture'].tolist()
-    # Invoice URL format: https://admin.psylio.com/assistance-requests/<record_id>/invoices/<invoice_id>
-    open_invoices['invoice_url'] = open_invoices['invoice_url'].str.split('/+', regex=True)
-    open_invoices['RecordID'] = open_invoices['invoice_url'].apply(itemgetter(3))
-    open_invoices['InvoiceID'] = open_invoices['invoice_url'].apply(itemgetter(5))
-        
-    STATES = ('Brouillon', 'Facture envoyée')  # , 'Payée', 'Reçu envoyé')
-    open_invoices['État'] = open_invoices.iloc[:, 6].apply(
-        lambda dropdown: STATES[0] if 'Marquer envoyée' in dropdown else STATES[1]
-    )
-
-    columns = {
+    INDEX_COLS = ['RecordID', 'Date']
+    rename_dict = {
         'RecordID': 'RecordID',
         'Facture': 'Facture',
         'InvoiceID': 'InvoiceID',
@@ -47,10 +28,30 @@ def retrieve_open_invoices(_session, nb_days=60, is_first_call=True):
         'État': 'État',
     }
 
-    open_invoices = open_invoices[list(columns)]
-    open_invoices.rename(columns=columns, inplace=True)
+    if is_first_call:
+        st.write('Retrieving open invoices...')
+    resp = _session.get(open_invoices_url(nb_days))
 
-    INDEX_COLS = ['RecordID', 'Date']
+    try:
+        open_invoices = pd.read_html(resp.content, converters=converters, extract_links='body')[1]
+    except IndexError:  # if there's no second <table> element, then there're no open invoices
+        return pd.DataFrame(columns=rename_dict.values()).set_index(INDEX_COLS)
+
+    # extract record/invoice IDs
+    open_invoices[['Facture', 'invoice_url']] = open_invoices['Facture'].tolist()
+    # Invoice URL format: https://admin.psylio.com/assistance-requests/<record_id>/invoices/<invoice_id>
+    open_invoices['invoice_url'] = open_invoices['invoice_url'].str.split('/+', regex=True)
+    open_invoices['RecordID'] = open_invoices['invoice_url'].apply(itemgetter(3))
+    open_invoices['InvoiceID'] = open_invoices['invoice_url'].apply(itemgetter(5))
+
+    STATES = ('Brouillon', 'Facture envoyée')  # , 'Payée', 'Reçu envoyé')
+    open_invoices['État'] = open_invoices.iloc[:, 6].apply(
+        lambda dropdown: STATES[0] if 'Marquer envoyée' in dropdown else STATES[1]
+    )
+
+    open_invoices = open_invoices[list(rename_dict)]
+    open_invoices.rename(columns=rename_dict, inplace=True)
+
     open_invoices.set_index(INDEX_COLS, inplace=True)
 
     return open_invoices
@@ -183,6 +184,9 @@ def retrieve_unpaid_invoices(_session):
 
     # retrieve unpaid invoices
     unpaid_invoices = retrieve_open_invoices(_session, is_first_call=False)
+    logger.info(''.join(['\n', "UNPAID_INVOICES", '\n']))
+    logger.info(len(unpaid_invoices))
+    logger.info(unpaid_invoices)
 
     # drop useless columns
     columns = ['Facture', 'Service(s)', 'Montant', 'InvoiceID']

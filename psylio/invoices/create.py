@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from itertools import pairwise
 
 import streamlit as st
@@ -13,15 +14,17 @@ from ..utils import request_confirm
 logger = logging.getLogger(__name__)
 
 
-@st.cache_data()
+# @st.cache_data()
 def create_missing_invoices(_session, missing_invoices):
     st.write('Creating invoices for appointments not having one already...')
 
     if missing_invoices.empty:
         st.write('There were no missing invoices.')
     else:
-        print(missing_invoices[['Heure', 'Titre']])
-        request_confirm(f'The above {len(missing_invoices)} invoice(s) will be created, is this correct?')
+        request_confirm([
+            ('write', f'The following {len(missing_invoices)} invoice(s) will be created, is this correct?'),
+            ('dataframe', missing_invoices[['Heure', 'Titre']]),
+        ], key="ask-create-missing")
 
     missing_invoices.reset_index(inplace=True, drop=False)
     for _, invoice in missing_invoices.iterrows():

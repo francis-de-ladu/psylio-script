@@ -17,7 +17,9 @@ def close_paid_invoices(email, password, unpaid_invoices, newly_paid_invoices):
         return
 
     columns = ['Facture', 'Date', 'Client 1', 'Montant dû', 'Date paiement', 'Type paiement']
-    request_confirm(f'Mark {len(newly_paid_invoices)} invoice(s) as paid?')
+    request_confirm([
+        ('write', f'Mark {len(newly_paid_invoices)} invoice(s) as paid?'),
+    ], key="ask-mark-as-paid")
 
     # instantiate driver
     service = Service(ChromeDriverManager().install())

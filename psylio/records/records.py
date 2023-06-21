@@ -16,7 +16,7 @@ def retrieve_records(_session):
     st.write('Retrieving records...')
     active_records = fetch_records(_session)
     archived_records = fetch_records(_session, is_archived=True)
-    st.write(f'Found {len(active_records)} active records and {len(archived_records)} archived ones.')
+    st.write(f'Found {len(active_records)} active records and {len(archived_records)} archived records.')
 
     active_records['Statut'] = 'Actif'
     archived_records['Statut'] = 'Archivé'
@@ -37,7 +37,7 @@ def fetch_records(_session, is_archived=False):
 
     records['Url'] = records['Titre'].str.split('/+', regex=True)
     records['RecordID'] = records['Url'].apply(itemgetter(3))
-    
+
     return records.set_index('RecordID')
 
 
